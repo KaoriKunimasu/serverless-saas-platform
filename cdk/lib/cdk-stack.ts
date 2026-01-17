@@ -1,4 +1,4 @@
-import * as cdk from 'aws-cdk-lib/core';
+import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { RemovalPolicy } from 'aws-cdk-lib';
@@ -13,7 +13,7 @@ export class CdkStack extends cdk.Stack {
       sortKey: { name: 'itemId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: true,
+        pointInTimeRecoveryEnabled: false,
       },
       removalPolicy: RemovalPolicy.DESTROY, 
     });
