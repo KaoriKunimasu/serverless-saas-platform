@@ -1,3 +1,16 @@
+# Serverless Saas Platform (Portfolio)
+
+## Projects
+- Project A: Serverless Saas (CDK)
+- Project B: AI Full-stack (planned)
+- Project C: ECS Production (planned)
+- Project D: Data pipeline (planned)
+
+## How to run (quick)
+- Infrastructure (CDK): see `cdk/`
+- Apps: will liver under `apps/`
+- Docs/standards: see `docs/`
+
 ## API Design
 
 ### POST /items
