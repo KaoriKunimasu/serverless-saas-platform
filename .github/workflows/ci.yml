@@ -8,6 +8,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
 
     steps:
       - name: Checkout repo
@@ -31,7 +35,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::kaori-admin:role/github-actions-cdk-readonly
+          role-to-assume: arn:aws:iam::515241425905:role/github-actions-cdk-readonly
           aws-region: us-east-1
 
       - name: Who am I?
