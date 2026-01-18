@@ -28,6 +28,18 @@ jobs:
         working-directory: cdk
         run: npm run build
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::kaori-admin:role/github-actions-cdk-readonly
+          aws-region: us-east-1
+
+      - name: Who am I?
+        run: aws sts get-caller-identity
+
+      - name: Check AWS CLI
+        run: aws --version
+
       - name: Test (CDK)
         working-directory: cdk
         run: npm test
