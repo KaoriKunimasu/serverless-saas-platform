@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies (CDK)
         working-directory: cdk
-        run: npm install
+        run: npm ci
 
       - name: Build (CDK)
         working-directory: cdk
