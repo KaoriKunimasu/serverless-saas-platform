@@ -1,18 +1,15 @@
 name: CI
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
-  build:
+  checks:
+    name: checks (lint/test/synth)
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -24,7 +21,7 @@ jobs:
           cache: npm
           cache-dependency-path: cdk/package-lock.json
 
-      - name: Install dependencies (CDK)
+      - name: Install (CDK)
         working-directory: cdk
         run: npm ci
 
@@ -32,18 +29,27 @@ jobs:
         working-directory: cdk
         run: npm run build
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::515241425905:role/github-actions-cdk-readonly
-          aws-region: us-east-1
-
-      - name: Who am I?
-        run: aws sts get-caller-identity
-
-      - name: Check AWS CLI
-        run: aws --version
-
       - name: Test (CDK)
         working-directory: cdk
         run: npm test
+
+      - name: CDK synth (no AWS)
+        working-directory: cdk
+        run: npx cdk synth
+
+  aws-smoke:
+    name: aws smoke (OIDC STS)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::515241425905:role/github-actions-cdk-readonly
+          aws-region: ap-southeast-2
+
+      - name: Who am I?
+        run: aws sts get-caller-identity
