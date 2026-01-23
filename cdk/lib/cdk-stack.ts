@@ -1,12 +1,14 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { RemovalPolicy } from 'aws-cdk-lib';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export class CdkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // DynamoDB
     const itemsTable = new dynamodb.Table(this, 'ItemsTable', {
       tableName: 'Items',
       partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
@@ -15,8 +17,41 @@ export class CdkStack extends cdk.Stack {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: false,
       },
-      removalPolicy: RemovalPolicy.DESTROY, 
+      removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // Cognito User Pool
+    const userPool = new cognito.UserPool(this, 'UserPool', {
+      userPoolName: 'project-a-users',
+      selfSignUpEnabled: true,
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      passwordPolicy: {
+        minLength: 8,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireDigits: true,
+        requireSymbols: false,
+      },
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // Cognito Client
+    const userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
+      userPool,
+      authFlows: {
+        userPassword: true,
+        userSrp: true,
+      },
+    });
+
+    // Outputs
+    new cdk.CfnOutput(this, 'UserPoolId', {
+      value: userPool.userPoolId,
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolClientId', {
+      value: userPoolClient.userPoolClientId,
+    });
   }
 }
