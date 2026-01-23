@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { RemovalPolicy } from 'aws-cdk-lib';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 
 export class CdkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -20,3 +20,36 @@ export class CdkStack extends cdk.Stack {
 
   }
 }
+
+const userPool = new cognito.UserPool(this, 'UserPool', {
+  userPoolName: 'project-a-users',
+  
+  selfSignUpEnabled: true,
+  signInAliases: { email: true },
+  autoVerify: { email: true },
+  passwordPolicy: {
+    minLength: 8,
+    requireUppercase: true,
+    requireLowercase: true,
+    requireNumbers: true,
+    requireSymbols: false,
+  },
+
+  removalPolicy: RemovalPolicy.DESTROY,
+});
+
+const userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
+  userPool,
+  authFlows: {
+    userPassword: true,
+    userSrp: true,
+  },
+});
+
+new cdk.CfnOutput(this, 'UserPoolId', {
+  value: userPool.userPoolId,
+});
+
+new cdk.CfnOutput(this, 'UserPoolClientId', {
+  value: userPoolClient.userPoolClientId,
+});
