@@ -45,6 +45,7 @@ Project A:
 - `cd cdk && npm install`
 - `npx cdk synth`
 - `npx cdk deploy -c stage=dev` (optional; CI/CD deploy is primary)
+- `npx cdk synth -c stage=dev` (or `stage=prod`)
 
 Project B:
 - `cd infra/b-terraform`
