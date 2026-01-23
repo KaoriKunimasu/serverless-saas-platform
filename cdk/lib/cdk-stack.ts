@@ -8,21 +8,22 @@ export class CdkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    const stage = this.node.tryGetContext('stage') ?? 'dev';
+    const isProd = stage === 'prod';
+
     // DynamoDB
     const itemsTable = new dynamodb.Table(this, 'ItemsTable', {
-      tableName: 'Items',
-      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'itemId', type: dynamodb.AttributeType.STRING },
+      tableName: `Items-${stage}`,
+      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: false,
-      },
-      removalPolicy: RemovalPolicy.DESTROY,
+      pointInTimeRecovery: isProd,
+      removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
     });
 
     // Cognito User Pool
     const userPool = new cognito.UserPool(this, 'UserPool', {
-      userPoolName: 'project-a-users',
+      userPoolName: `project-a-users-${stage}`,
       selfSignUpEnabled: true,
       signInAliases: { email: true },
       autoVerify: { email: true },
@@ -33,7 +34,7 @@ export class CdkStack extends cdk.Stack {
         requireDigits: true,
         requireSymbols: false,
       },
-      removalPolicy: RemovalPolicy.DESTROY,
+      removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
     });
 
     // Cognito Client
@@ -46,12 +47,10 @@ export class CdkStack extends cdk.Stack {
     });
 
     // Outputs
-    new cdk.CfnOutput(this, 'UserPoolId', {
-      value: userPool.userPoolId,
-    });
+  new cdk.CfnOutput(this, 'Stage', { value: stage });
+  new cdk.CfnOutput(this, 'ItemsTableName', { value: itemsTable.tableName });
+  new cdk.CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
+  new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId });
 
-    new cdk.CfnOutput(this, 'UserPoolClientId', {
-      value: userPoolClient.userPoolClientId,
-    });
   }
 }
