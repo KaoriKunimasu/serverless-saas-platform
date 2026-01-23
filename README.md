@@ -1,86 +1,52 @@
-# Serverless Saas Platform (Portfolio)
+# Cloud Platform Projects (AWS | Serverless + ECS)
 
-## Projects
-- Project A: Serverless Saas (CDK)
-- Project B: AI Full-stack (planned)
-- Project C: ECS Production (planned)
-- Project D: Data pipeline (planned)
+This repository contains two AWS projects demonstrating serverless and container-based architectures.
 
-## How to run (quick)
-- Infrastructure (CDK): see `cdk/`
-- Apps: will liver under `apps/`
-- Docs/standards: see `docs/`
+- **Project A — Serverless SaaS (CDK)**: Cognito-authenticated API with DynamoDB, scheduled processing, and CI/CD.
+- **Project B — ECS Production on Fargate (Terraform)**: VPC + ALB + ECS + RDS with safe delivery and observability.
 
-## API Design
+## What to look at first
+- **Architecture & links**: `docs/portfolio.md`
+- **Operational docs**: `docs/runbooks/` and `docs/incidents/`
+- **Engineering standards**: `docs/standards.md`
 
-### POST /items
-Creates a new item.
+## Repository Layout
+- `cdk/` : Project A infrastructure (AWS CDK, TypeScript)
+- `apps/` :
+  - `apps/a-api/` : serverless API (Lambda)
+  - `apps/a-web/` : minimal UI
+  - `apps/b-api/` : container API
+  - `apps/b-web/` : minimal UI (used for service validation)
+- `infra/` : Project B infrastructure (Terraform)
+- `docs/` : diagrams, runbooks, incident reports, evaluation checklist
 
-### GET /items
-Returns a list of items for the authenticated user.
+## Project A — Serverless SaaS (CDK)
+Stack: Cognito, API Gateway, Lambda, DynamoDB, EventBridge, (optional) SES, S3/CloudFront
 
-### GET /summary
-Returns a summary of the user's items.
+API:
+- `POST /items`
+- `GET /items`
+- `GET /summary`
 
-Each API is implemented using AWS Lambda and exposed via Amazon API Gateway. 
+Auth:
+- Cognito issues JWT
+- API Gateway validates JWT (Cognito Authorizer)
+- Lambdas derive `userId` from JWT claims (e.g., `sub`)
 
-All API endpoints require authentication using Amazon Cognito. 
+Data (DynamoDB):
+- PK: `USER#{userId}`
+- SK: `ITEM#{itemId}`
 
-## Authentication (Planned)
+## Project B — ECS Production on Fargate (Terraform)
+Stack: VPC (public/private), ALB, ECS Fargate, ECR, RDS PostgreSQL, Secrets Manager, CloudWatch
 
-- Amazon Cognito User Pool is used for user authentication.
-- The frontend obtains a JWT after login. 
-- Amazon API Gateway uses a Cognito Authorizer to validate the JWT. 
-- Lambda functions read the user identity from the request context and use it as userId. 
+## How to Run (Quick)
+Project A:
+- `cd cdk && npm install`
+- `npx cdk synth`
+- `npx cdk deploy -c stage=dev` (optional; CI/CD deploy is primary)
 
-## Data Model (Draft)
-
-Each item contains:
-- userId
-- itemId
-- name
-- amount
-- createdAt
-
-Amazon DynamoDB is used to store item data because it is fully managed, scalable, and works well with serverless architectures. 
-
-Items are partitioned by userId so that each user can only access their own data. 
-
-## DynamoDB Table Design (Draft)
-
-Table: Items
-
-- Partition key (PK): userId (String)
-- Sort key (SK): itemId (String)
-
-Attributes:
-- name (String)
-- amount (Number)
-- createdAt (String, ISO 8601)
-
-## Architecture (High Level)
-
-- Frontend: S3 + CloudFront (planned)
-- Auth: Amazon Cognito User Pool
-- API: Amazon API Gateway
-- Compute: AWS Lambda
-- Database: Amazon DynamoDB
-- Scheduler: Amazon EventBridge (planned)
-- Email: Amazon SES (planned)
-
-## Architecture Diagram (Draft)
-
-```mermaid
-flowchart LR
-    U[User] --> CF[CloudFront]
-    CF --> S3[S3 Frontend]
-    U -->|Login| COG[Cognito User Pool]
-    U -->|JWT| APIGW[API Gateway]
-    APIGW --> L1[Lambda: POST /items]
-    APIGW --> L2[Lambda: GET /items]
-    APIGW --> L3[Lambda: GET /summary]
-    L1 --> DDB[DynamoDB Items]
-    L2 --> DDB
-    L3 --> DDB
-    EB[EventBridge] --> L3
-    L3 --> SES[SES Email]
+Project B:
+- `cd infra/b-terraform`
+- `terraform init`
+- `terraform plan` / `terraform apply` (dev only)
