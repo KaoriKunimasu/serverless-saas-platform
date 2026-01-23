@@ -14,10 +14,11 @@ export class CdkStack extends cdk.Stack {
     // DynamoDB
     const itemsTable = new dynamodb.Table(this, 'ItemsTable', {
       tableName: `Items-${stage}`,
-      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
+      // pk: USER#{userId}, sk: ITEM#{itemId}
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecovery: isProd,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: isProd },
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
     });
 
@@ -51,6 +52,7 @@ export class CdkStack extends cdk.Stack {
   new cdk.CfnOutput(this, 'ItemsTableName', { value: itemsTable.tableName });
   new cdk.CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
   new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId });
+  new cdk.CfnOutput(this, 'ItemsTableArn', { value: itemsTable.tableArn });
 
   }
 }
