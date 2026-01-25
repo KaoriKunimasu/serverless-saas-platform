@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, TABLE_NAME } from '../lib/ddb';
 import { ok, badRequest } from '../lib/response';
@@ -9,6 +10,12 @@ const schema = z.object({
   amount: z.number().positive(),
 });
 
+/**
+ * Expected event (API Gateway v2 HTTP API proxy-like shape):
+ * - event.body: string (JSON)
+ * - event.requestContext.authorizer.claims.sub: string (optional for now)
+ */
+
 export const handler = async (event: any) => {
   if (!event.body) return badRequest('Missing body');
 
@@ -16,7 +23,7 @@ export const handler = async (event: any) => {
   if (!parsed.success) return badRequest('Invalid input');
 
   const userId = event.requestContext?.authorizer?.claims?.sub ?? 'local-user';
-  const itemId = crypto.randomUUID();
+  const itemId = randomUUID();
 
   const item = {
     pk: `USER#${userId}`,

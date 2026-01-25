@@ -3,6 +3,11 @@ import { ddb, TABLE_NAME } from '../lib/ddb';
 import { ok } from '../lib/response';
 import { log } from '../lib/logger';
 
+/**
+ * Expected event:
+ * - event.requestContext.authorizer.claims.sub (optional for now)
+ */
+
 export const handler = async (event: any) => {
   const userId = event.requestContext?.authorizer?.claims?.sub ?? 'local-user';
 
