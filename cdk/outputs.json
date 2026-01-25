@@ -1,0 +1,10 @@
+{
+  "CdkStack": {
+    "UserPoolClientId": "5aslv0gei7nnbu69l2409ehp52",
+    "ItemsTableName": "Items-dev",
+    "UserPoolId": "ap-southeast-2_MuCINV4Um",
+    "Stage": "dev",
+    "ItemsTableArn": "arn:aws:dynamodb:ap-southeast-2:515241425905:table/Items-dev",
+    "HttpApiUrl": "https://kyd6kd1jgl.execute-api.ap-southeast-2.amazonaws.com/"
+  }
+}
