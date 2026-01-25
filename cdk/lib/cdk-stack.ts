@@ -67,6 +67,16 @@ export class CdkStack extends cdk.Stack {
       environment: commonEnv,
     });
 
+    const summaryFn = new NodejsFunction(this, 'SummaryFn', {
+    runtime: lambda.Runtime.NODEJS_20_X,
+    entry: path.join(__dirname, '../../apps/a-api/src/handlers/summary.ts'),
+    handler: 'handler',
+    environment: commonEnv,
+  });
+
+  itemsTable.grantReadData(summaryFn);
+
+
     // Grant DynamoDB permissions to Lambdas
     itemsTable.grantReadWriteData(createItemFn);
     itemsTable.grantReadData(listItemsFn);
@@ -94,6 +104,13 @@ export class CdkStack extends cdk.Stack {
       path: '/items',
       methods: [apigwv2.HttpMethod.GET],
       integration: new integrations.HttpLambdaIntegration('ListItemsIntegration', listItemsFn),
+      authorizer: jwtAuthorizer,
+    });
+
+    httpApi.addRoutes({
+      path: '/summary',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration('SummaryIntegration', summaryFn),
       authorizer: jwtAuthorizer,
     });
 
