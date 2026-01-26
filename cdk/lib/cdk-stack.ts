@@ -8,6 +8,8 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 
@@ -58,6 +60,9 @@ export class CdkStack extends cdk.Stack {
       entry: path.join(__dirname, '../../apps/a-api/src/handlers/createItem.ts'),
       handler: 'handler',
       environment: commonEnv,
+
+      depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
+
     });
 
     const listItemsFn = new NodejsFunction(this, 'ListItemsFn', {
@@ -65,17 +70,37 @@ export class CdkStack extends cdk.Stack {
       entry: path.join(__dirname, '../../apps/a-api/src/handlers/listItems.ts'),
       handler: 'handler',
       environment: commonEnv,
+      depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
+
     });
 
     const summaryFn = new NodejsFunction(this, 'SummaryFn', {
-    runtime: lambda.Runtime.NODEJS_20_X,
-    entry: path.join(__dirname, '../../apps/a-api/src/handlers/summary.ts'),
-    handler: 'handler',
-    environment: commonEnv,
-  });
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.join(__dirname, '../../apps/a-api/src/handlers/summary.ts'),
+      handler: 'handler',
+      environment: commonEnv,
+      depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
+
+    });
 
   itemsTable.grantReadData(summaryFn);
 
+  // EventBridge schedule (daily)
+    const summaryScheduleRule = new events.Rule(this, 'SummaryScheduleRule', {
+      ruleName: `project-a-summary-daily-${stage}`,
+      schedule: events.Schedule.rate(cdk.Duration.days(1)),
+    });
+
+    // Invoke Summary Lambda on schedule
+    summaryScheduleRule.addTarget(
+    new targets.LambdaFunction(summaryFn, {
+      event: events.RuleTargetInput.fromObject({
+        userId: 'system',
+        source: 'eventbridge',
+        stage,
+      }),
+    })
+  );
 
     // Grant DynamoDB permissions to Lambdas
     itemsTable.grantReadWriteData(createItemFn);

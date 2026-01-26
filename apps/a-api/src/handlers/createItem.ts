@@ -4,6 +4,7 @@ import { ddb, TABLE_NAME } from '../lib/ddb';
 import { ok, badRequest } from '../lib/response';
 import { z } from 'zod';
 import { log } from '../lib/logger';
+import { getUserId } from '../lib/auth';
 
 const schema = z.object({
   name: z.string().min(1),
@@ -16,13 +17,14 @@ const schema = z.object({
  * - event.requestContext.authorizer.claims.sub: string (optional for now)
  */
 
+
 export const handler = async (event: any) => {
   if (!event.body) return badRequest('Missing body');
 
   const parsed = schema.safeParse(JSON.parse(event.body));
   if (!parsed.success) return badRequest('Invalid input');
 
-  const userId = event.requestContext?.authorizer?.claims?.sub ?? 'local-user';
+  const userId = getUserId(event);
   const itemId = randomUUID();
 
   const item = {
