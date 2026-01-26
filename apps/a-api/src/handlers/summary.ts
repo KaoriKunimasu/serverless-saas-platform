@@ -2,6 +2,7 @@ import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, TABLE_NAME } from '../lib/ddb';
 import { ok } from '../lib/response';
 import { log } from '../lib/logger';
+import { getUserId } from '../lib/auth';
 
 type Item = {
   pk: string;
@@ -17,7 +18,18 @@ function monthKey(iso?: string) {
 }
 
 export const handler = async (event: any) => {
-  const userId = event.requestContext?.authorizer?.claims?.sub ?? 'local-user';
+    log('summary.debug.event', {
+  hasUserId: typeof event?.userId !== 'undefined',
+  userId: event?.userId,
+  keys: event ? Object.keys(event) : [],
+});
+
+const sub =
+  event?.requestContext?.authorizer?.jwt?.claims?.sub ??
+  event?.requestContext?.authorizer?.claims?.sub; // fallback
+
+  const userId = getUserId(event);
+
   const pk = `USER#${userId}`;
 
   const result = await ddb.send(
@@ -35,26 +47,32 @@ export const handler = async (event: any) => {
 
   let count = 0;
   let totalAmount = 0;
-
   const monthlyTotals: Record<string, number> = {};
 
-  for (const it of items) {
+  for (const it of items as any[]) {
     count += 1;
     const amt = typeof it.amount === 'number' ? it.amount : 0;
     totalAmount += amt;
 
-    const m = monthKey(it.createdAt);
+    const m = it.createdAt ? it.createdAt.slice(0, 7) : 'unknown';
     monthlyTotals[m] = (monthlyTotals[m] ?? 0) + amt;
   }
 
-  const payload = {
-    pk,
-    count,
-    totalAmount,
-    monthlyTotals,
-  };
+const responsePayload = {
+  userId,
+  count,
+  totalAmount,
+  monthlyTotals,
+  generatedAt: new Date().toISOString(),
+};
 
-  log('summary', payload);
+log('summary.generated', responsePayload);
 
-  return ok(payload);
+// HTTP API
+if (event?.requestContext) {
+  return ok(responsePayload);
+}
+
+// EventBridge / AWS Lambda Invoke
+return responsePayload;
 };

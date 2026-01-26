@@ -2,6 +2,7 @@ import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, TABLE_NAME } from '../lib/ddb';
 import { ok } from '../lib/response';
 import { log } from '../lib/logger';
+import { getUserId } from '../lib/auth';
 
 /**
  * Expected event:
@@ -9,7 +10,7 @@ import { log } from '../lib/logger';
  */
 
 export const handler = async (event: any) => {
-  const userId = event.requestContext?.authorizer?.claims?.sub ?? 'local-user';
+  const userId = getUserId(event);  
 
   const pk = `USER#${userId}`;
 
