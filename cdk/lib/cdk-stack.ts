@@ -63,7 +63,7 @@ export class CdkStack extends cdk.Stack {
 
       depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
 
-    });
+      });
 
     const listItemsFn = new NodejsFunction(this, 'ListItemsFn', {
       runtime: lambda.Runtime.NODEJS_20_X,
