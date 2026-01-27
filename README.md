@@ -1,53 +1,25 @@
 # Cloud Platform Projects (AWS | Serverless + ECS)
 
-This repository contains two AWS projects demonstrating serverless and container-based architectures.
+This repository contains two AWS-based projects showcasing different production architectures:
+serverless and container-based.
 
-- **Project A — Serverless SaaS (CDK)**: Cognito-authenticated API with DynamoDB, scheduled processing, and CI/CD.
-- **Project B — ECS Production on Fargate (Terraform)**: VPC + ALB + ECS + RDS with safe delivery and observability.
+- **Project A — Serverless SaaS (CDK)**  
+  Cognito-authenticated HTTP API built with AWS Lambda and DynamoDB, including scheduled processing and CI/CD.
 
-## What to look at first
-- **Architecture & links**: `docs/portfolio.md`
-- **Operational docs**: `docs/runbooks/` and `docs/incidents/`
-- **Engineering standards**: `docs/standards.md`
+- **Project B — ECS Production on Fargate (Terraform)**  
+  Container-based application running on ECS Fargate with ALB, RDS, and infrastructure managed via Terraform.
 
-## Repository Layout
-- `cdk/` : Project A infrastructure (AWS CDK, TypeScript)
-- `apps/` :
-  - `apps/a-api/` : serverless API (Lambda)
-  - `apps/a-web/` : minimal UI
-  - `apps/b-api/` : container API
-  - `apps/b-web/` : minimal UI (used for service validation)
-- `infra/` : Project B infrastructure (Terraform)
-- `docs/` : diagrams, runbooks, incident reports, evaluation checklist
+## Where to start
+- **System overview & architecture**: `docs/overview.md`
+- **Operational documentation**: `docs/runbooks/`, `docs/incidents/`
+- **Engineering standards & conventions**: `docs/standards.md`
 
-## Project A — Serverless SaaS (CDK)
-Stack: Cognito, API Gateway, Lambda, DynamoDB, EventBridge, (optional) SES, S3/CloudFront
-
-API:
-- `POST /items`
-- `GET /items`
-- `GET /summary`
-
-Auth:
-- Cognito issues JWT
-- API Gateway validates JWT (Cognito Authorizer)
-- Lambdas derive `userId` from JWT claims (e.g., `sub`)
-
-Data (DynamoDB):
-- PK: `USER#{userId}`
-- SK: `ITEM#{itemId}`
-
-## Project B — ECS Production on Fargate (Terraform)
-Stack: VPC (public/private), ALB, ECS Fargate, ECR, RDS PostgreSQL, Secrets Manager, CloudWatch
-
-## How to Run (Quick)
-Project A:
-- `cd cdk && npm install`
-- `npx cdk synth`
-- `npx cdk deploy -c stage=dev` (optional; CI/CD deploy is primary)
-- `npx cdk synth -c stage=dev` (or `stage=prod`)
-
-Project B:
-- `cd infra/b-terraform`
-- `terraform init`
-- `terraform plan` / `terraform apply` (dev only)
+## Repository layout
+- `cdk/` — Infrastructure for Project A (AWS CDK, TypeScript)
+- `apps/`
+  - `apps/a-api/` — Serverless API (Lambda)
+  - `apps/a-web/` — Minimal frontend
+  - `apps/b-api/` — Container-based API
+  - `apps/b-web/` — Minimal frontend for validation
+- `infra/` — Infrastructure for Project B (Terraform)
+- `docs/` — Architecture notes, runbooks, incidents, and supporting documentation
