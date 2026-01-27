@@ -13,15 +13,34 @@ const schema = z.object({
 
 /**
  * Expected event (API Gateway v2 HTTP API proxy-like shape):
- * - event.body: string (JSON)
- * - event.requestContext.authorizer.claims.sub: string (optional for now)
+ * - event.body: string (JSON) or object
+ * - event.requestContext.authorizer.jwt.claims.sub: string (new format)
+ * - event.requestContext.authorizer.claims.sub: string (older format)
  */
-
-
 export const handler = async (event: any) => {
-  if (!event.body) return badRequest('Missing body');
+  log('rawEvent', {
+    hasBody: !!event?.body,
+    bodyType: typeof event?.body,
+    bodyPreview: typeof event?.body === 'string' ? event.body.slice(0, 200) : event?.body,
+    isBase64Encoded: event?.isBase64Encoded,
+    keys: Object.keys(event ?? {}),
+  });
 
-  const parsed = schema.safeParse(JSON.parse(event.body));
+  if (!event?.body) return badRequest('Missing body');
+
+  let bodyObj: unknown;
+
+  if (typeof event.body === 'string') {
+    try {
+      bodyObj = JSON.parse(event.body);
+    } catch {
+      return badRequest('Invalid JSON');
+    }
+  } else {
+    bodyObj = event.body;
+  }
+
+  const parsed = schema.safeParse(bodyObj);
   if (!parsed.success) return badRequest('Invalid input');
 
   const userId = getUserId(event);
@@ -36,10 +55,12 @@ export const handler = async (event: any) => {
 
   log('createItem', item);
 
-  await ddb.send(new PutCommand({
-    TableName: TABLE_NAME,
-    Item: item,
-  }));
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: item,
+    }),
+  );
 
   return ok(item);
 };
