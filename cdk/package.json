@@ -1,16 +1,16 @@
 {
   "name": "cdk",
   "version": "0.1.0",
-  "bin": { "cdk": "bin/cdk.js" },
+  "bin": {
+    "cdk": "bin/cdk.js"
+  },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-
     "ls:dev": "aws-cdk ls -c stage=dev",
     "diff:dev": "aws-cdk diff CdkStack -c stage=dev",
     "deploy:dev": "aws-cdk deploy CdkStack -c stage=dev",
-
     "cdk": "aws-cdk"
   },
   "devDependencies": {
