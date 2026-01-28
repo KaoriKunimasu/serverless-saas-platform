@@ -3,6 +3,9 @@ import { ddb, TABLE_NAME } from '../lib/ddb';
 import { ok } from '../lib/response';
 import { log } from '../lib/logger';
 import { getUserId } from '../lib/auth';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+
+const ses = new SESClient({});
 
 type Item = {
   pk: string;
@@ -18,6 +21,12 @@ function monthKey(iso?: string) {
 }
 
 export const handler = async (event: any) => {
+    const stage =
+    event?.stage ??
+    event?.detail?.stage ??
+    process.env.STAGE ??
+    'dev';
+    
     log('summary.debug.event', {
   hasUserId: typeof event?.userId !== 'undefined',
   userId: event?.userId,
@@ -67,6 +76,34 @@ const responsePayload = {
 };
 
 log('summary.generated', responsePayload);
+
+const from = process.env.SUMMARY_FROM_EMAIL;
+const to = process.env.SUMMARY_TO_EMAIL;
+
+if (from && to) {
+  const subject = `[Project A] Daily summary (${stage ?? 'dev'})`;
+  const bodyText =
+    `userId: ${userId}\n` +
+    `count: ${count}\n` +
+    `totalAmount: ${totalAmount}\n` +
+    `monthlyTotals: ${JSON.stringify(monthlyTotals)}\n` +
+    `generatedAt: ${responsePayload.generatedAt}\n`;
+
+  await ses.send(
+    new SendEmailCommand({
+      Source: from,
+      Destination: { ToAddresses: [to] },
+      Message: {
+        Subject: { Data: subject },
+        Body: { Text: { Data: bodyText } },
+      },
+    })
+  );
+
+  log('summary.email.sent', { from, to, subject });
+} else {
+  log('summary.email.skipped', { reason: 'missing env', hasFrom: !!from, hasTo: !!to });
+}
 
 // HTTP API
 if (event?.requestContext) {

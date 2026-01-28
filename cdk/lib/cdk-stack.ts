@@ -10,6 +10,7 @@ import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 
@@ -53,7 +54,10 @@ export class CdkStack extends cdk.Stack {
     });
 
     // Lambdas
-    const commonEnv = { ITEMS_TABLE_NAME: itemsTable.tableName };
+    const commonEnv = {
+    ITEMS_TABLE_NAME: itemsTable.tableName,
+    STAGE: stage,
+    };
 
     const createItemFn = new NodejsFunction(this, 'CreateItemFn', {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -74,33 +78,47 @@ export class CdkStack extends cdk.Stack {
 
     });
 
-    const summaryFn = new NodejsFunction(this, 'SummaryFn', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      entry: path.join(__dirname, '../../apps/a-api/src/handlers/summary.ts'),
-      handler: 'handler',
-      environment: commonEnv,
-      depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
-
-    });
+const summaryFn = new NodejsFunction(this, 'SummaryFn', {
+  runtime: lambda.Runtime.NODEJS_20_X,
+  entry: path.join(__dirname, '../../apps/a-api/src/handlers/summary.ts'),
+  handler: 'handler',
+  environment: {
+    ...commonEnv,
+    SUMMARY_FROM_EMAIL: 'kaori.kunimasu@gmail.com',
+    SUMMARY_TO_EMAIL: 'kaori.kunimasu@gmail.com',
+  },
+  depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
+});
 
   itemsTable.grantReadData(summaryFn);
 
-  // EventBridge schedule (daily)
-    const summaryScheduleRule = new events.Rule(this, 'SummaryScheduleRule', {
-      ruleName: `project-a-summary-daily-${stage}`,
-      schedule: events.Schedule.rate(cdk.Duration.days(1)),
-    });
+  summaryFn.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+    resources: ['*'],
+  })
+);
 
-    // Invoke Summary Lambda on schedule
-    summaryScheduleRule.addTarget(
-    new targets.LambdaFunction(summaryFn, {
-      event: events.RuleTargetInput.fromObject({
-        userId: 'system',
-        source: 'eventbridge',
-        stage,
-      }),
-    })
-  );
+// EventBridge schedule (dev: every 5 min, prod: daily)
+const schedule = isProd
+  ? events.Schedule.cron({ minute: '0', hour: '0' }) // UTC 00:00（= JST 09:00）
+  : events.Schedule.rate(cdk.Duration.minutes(5));
+
+const summaryScheduleRule = new events.Rule(this, 'SummaryScheduleRule', {
+  ruleName: `project-a-summary-${isProd ? 'daily' : 'every5min'}-${stage}`,
+  schedule,
+});
+
+// Invoke Summary Lambda on schedule
+summaryScheduleRule.addTarget(
+  new targets.LambdaFunction(summaryFn, {
+    event: events.RuleTargetInput.fromObject({
+      userId: isProd ? 'system' : '19eeb488-80f1-707a-0833-37e691495dc9',
+      source: 'eventbridge',
+      stage,
+    }),
+  })
+);
 
     // Grant DynamoDB permissions to Lambdas
     itemsTable.grantReadWriteData(createItemFn);
