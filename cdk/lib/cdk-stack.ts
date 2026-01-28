@@ -84,6 +84,7 @@ const summaryFn = new NodejsFunction(this, 'SummaryFn', {
   handler: 'handler',
   environment: {
     ...commonEnv,
+    STAGE: stage,
     SUMMARY_FROM_EMAIL: 'kaori.kunimasu@gmail.com',
     SUMMARY_TO_EMAIL: 'kaori.kunimasu@gmail.com',
   },
