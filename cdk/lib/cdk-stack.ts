@@ -11,6 +11,12 @@ import * as authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
+
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 
@@ -165,5 +171,55 @@ summaryScheduleRule.addTarget(
     new cdk.CfnOutput(this, 'ItemsTableArn', { value: itemsTable.tableArn });
     new cdk.CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId });
+
+    // --- Frontend hosting (S3 + CloudFront) ---
+// Build output: apps/a-web/out
+const webBucket = new s3.Bucket(this, 'WebBucket', {
+  bucketName: `project-a-web-${stage}-${this.account}-${this.region}`.toLowerCase(),
+  blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+  encryption: s3.BucketEncryption.S3_MANAGED,
+  removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+  autoDeleteObjects: isProd ? false : true,
+});
+
+const oac = new cloudfront.OriginAccessControl(this, 'WebOac', {
+  originAccessControlName: `project-a-web-oac-${stage}`,
+  signingBehavior: cloudfront.OriginAccessControlSigningBehavior.ALWAYS,
+  signingProtocol: cloudfront.OriginAccessControlSigningProtocol.SIGV4,
+  originAccessControlOriginType: cloudfront.OriginAccessControlOriginType.S3,
+});
+
+const distribution = new cloudfront.Distribution(this, 'WebDistribution', {
+  defaultRootObject: 'index.html',
+  defaultBehavior: {
+    origin: new origins.S3Origin(webBucket),
+    viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+  },
+  errorResponses: [
+    // for client-side routing (optional, but helps when deep-linking)
+    { httpStatus: 403, responseHttpStatus: 200, responsePagePath: '/index.html' },
+    { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' },
+  ],
+});
+
+// Attach OAC to the underlying CFN distribution
+const cfnDist = distribution.node.defaultChild as cloudfront.CfnDistribution;
+cfnDist.addPropertyOverride('DistributionConfig.Origins.0.OriginAccessControlId', oac.originAccessControlId);
+cfnDist.addPropertyOverride('DistributionConfig.Origins.0.S3OriginConfig.OriginAccessIdentity', '');
+
+// Deploy static assets
+new s3deploy.BucketDeployment(this, 'WebDeploy', {
+  destinationBucket: webBucket,
+  sources: [s3deploy.Source.asset(path.join(__dirname, '../../apps/a-web/out'))],
+  distribution,
+  distributionPaths: ['/*'],
+});
+
+new cdk.CfnOutput(this, 'FrontendUrl', {
+  value: `https://${distribution.distributionDomainName}`,
+});
   }
+ 
 }
+
+
