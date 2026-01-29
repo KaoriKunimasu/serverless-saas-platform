@@ -22,6 +22,7 @@ jobs:
           cache-dependency-path: |
             cdk/package-lock.json
             apps/a-api/package-lock.json
+            apps/a-web/package-lock.json
 
       - name: Install (a-api)
         working-directory: apps/a-api
@@ -34,7 +35,14 @@ jobs:
       - name: Test (a-api)
         working-directory: apps/a-api
         run: npm test --if-present
+      - name: Install (a-web)
+        working-directory: apps/a-web
+        run: npm ci
 
+      - name: Build (a-web)
+        working-directory: apps/a-web
+        run: npm run build
+        
       - name: Install (CDK)
         working-directory: cdk
         run: npm ci
