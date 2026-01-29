@@ -134,6 +134,18 @@ summaryScheduleRule.addTarget(
     // HTTP API
     const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
       apiName: `project-a-http-api-${stage}`,
+      corsPreflight: {
+        allowOrigins: [
+          'http://localhost:3000',
+          'https://dkpxahwdysmia.cloudfront.net',
+        ],
+        allowMethods: [
+          apigwv2.CorsHttpMethod.GET,
+          apigwv2.CorsHttpMethod.POST,
+          apigwv2.CorsHttpMethod.OPTIONS,
+        ],
+        allowHeaders: ['authorization', 'content-type'],
+      },
     });
 
     // JWT Authorizer (Cognito)
@@ -173,53 +185,65 @@ summaryScheduleRule.addTarget(
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId });
 
     // --- Frontend hosting (S3 + CloudFront) ---
-// Build output: apps/a-web/out
-const webBucket = new s3.Bucket(this, 'WebBucket', {
-  bucketName: `project-a-web-${stage}-${this.account}-${this.region}`.toLowerCase(),
-  blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-  encryption: s3.BucketEncryption.S3_MANAGED,
-  removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
-  autoDeleteObjects: isProd ? false : true,
-});
+    // Build output: apps/a-web/out
+    const webBucket = new s3.Bucket(this, 'WebBucket', {
+      bucketName: `project-a-web-${stage}-${this.account}-${this.region}`.toLowerCase(),
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      autoDeleteObjects: isProd ? false : true,
+    });
 
-const oac = new cloudfront.OriginAccessControl(this, 'WebOac', {
-  originAccessControlName: `project-a-web-oac-${stage}`,
-  signingBehavior: cloudfront.OriginAccessControlSigningBehavior.ALWAYS,
-  signingProtocol: cloudfront.OriginAccessControlSigningProtocol.SIGV4,
-  originAccessControlOriginType: cloudfront.OriginAccessControlOriginType.S3,
-});
+    const oac = new cloudfront.S3OriginAccessControl(this, 'WebOac', {
+      originAccessControlName: `project-a-web-oac-${stage}`,
+      signing: cloudfront.Signing.SIGV4_NO_OVERRIDE,
+    });
 
-const distribution = new cloudfront.Distribution(this, 'WebDistribution', {
-  defaultRootObject: 'index.html',
-  defaultBehavior: {
-    origin: new origins.S3Origin(webBucket),
-    viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-  },
-  errorResponses: [
-    // for client-side routing (optional, but helps when deep-linking)
-    { httpStatus: 403, responseHttpStatus: 200, responsePagePath: '/index.html' },
-    { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' },
-  ],
-});
+    const s3Origin = origins.S3BucketOrigin.withOriginAccessControl(webBucket, {
+      originAccessControl: oac,
+    });
 
-// Attach OAC to the underlying CFN distribution
-const cfnDist = distribution.node.defaultChild as cloudfront.CfnDistribution;
-cfnDist.addPropertyOverride('DistributionConfig.Origins.0.OriginAccessControlId', oac.originAccessControlId);
-cfnDist.addPropertyOverride('DistributionConfig.Origins.0.S3OriginConfig.OriginAccessIdentity', '');
+    const distribution = new cloudfront.Distribution(this, 'WebDistribution', {
+      defaultRootObject: 'index.html',
+      defaultBehavior: {
+        origin: s3Origin,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+      errorResponses: [
+        { httpStatus: 403, responseHttpStatus: 200, responsePagePath: '/index.html' },
+        { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' },
+      ],
+    });
 
-// Deploy static assets
-new s3deploy.BucketDeployment(this, 'WebDeploy', {
-  destinationBucket: webBucket,
-  sources: [s3deploy.Source.asset(path.join(__dirname, '../../apps/a-web/out'))],
-  distribution,
-  distributionPaths: ['/*'],
-});
 
-new cdk.CfnOutput(this, 'FrontendUrl', {
-  value: `https://${distribution.distributionDomainName}`,
-});
-  }
- 
-}
+
+
+    webBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [webBucket.arnForObjects('*')],
+        principals: [new iam.ServicePrincipal('cloudfront.amazonaws.com')],
+        conditions: {
+          StringEquals: {
+            'AWS:SourceArn': `arn:aws:cloudfront::${this.account}:distribution/${distribution.distributionId}`,
+          },
+        },
+      })
+    );
+
+    // Deploy static assets
+    new s3deploy.BucketDeployment(this, 'WebDeploy', {
+      destinationBucket: webBucket,
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../../apps/a-web/out'))],
+      distribution,
+      distributionPaths: ['/*'],
+    });
+
+    new cdk.CfnOutput(this, 'FrontendUrl', {
+      value: `https://${distribution.distributionDomainName}`,
+    });
+      }
+    
+    }
 
 
