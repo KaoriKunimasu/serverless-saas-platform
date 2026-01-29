@@ -76,7 +76,7 @@ jobs:
       - name: Who am I?
         run: aws sts get-caller-identity
 
-  deploy-dev:
+    deploy-dev:
     name: deploy dev (cdk)
     runs-on: ubuntu-latest
     needs: checks
@@ -96,24 +96,6 @@ jobs:
           cache: npm
           cache-dependency-path: |
             cdk/package-lock.json
-            apps/a-api/package-lock.json
-            apps/a-web/package-lock.json
-
-      - name: Install (a-api)
-        working-directory: apps/a-api
-        run: npm ci
-
-      - name: Build (a-api)
-        working-directory: apps/a-api
-        run: npm run build --if-present
-
-      - name: Install (a-web)
-        working-directory: apps/a-web
-        run: npm ci
-
-      - name: Build (a-web)
-        working-directory: apps/a-web
-        run: npm run build
 
       - name: Install (CDK)
         working-directory: cdk
@@ -126,9 +108,10 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::515241425905:role/github-actions-cdk-readonly
+          role-to-assume: arn:aws:iam::515241425905:role/github-actions-cdk-deploy
           aws-region: ap-southeast-2
 
       - name: CDK deploy (dev)
         working-directory: cdk
         run: npx cdk deploy -c stage=dev --require-approval never
+
