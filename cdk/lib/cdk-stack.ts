@@ -187,7 +187,7 @@ summaryScheduleRule.addTarget(
     // --- Frontend hosting (S3 + CloudFront) ---
     // Build output: apps/a-web/out
     const webBucket = new s3.Bucket(this, 'WebBucket', {
-      bucketName: `project-a-web-${stage}-${this.account}-${this.region}`.toLowerCase(),
+    
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
