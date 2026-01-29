@@ -15,7 +15,7 @@ serverless and container-based.
 - **System overview & architecture**: `docs/overview.md`
 - **Operational documentation**: `docs/runbooks/`, `docs/incidents/`
 - **Engineering standards & conventions**: `docs/standards.md`
-
+- **Deployment outputs**: CloudFront frontend URL and HTTP API endpoint are available as CDK stack outputs
 ---
 
 ## Repository layout
@@ -76,6 +76,8 @@ Authentication is handled by Amazon Cognito using JWTs.
 ---
 
 ### Frontend (Next.js)
+
+#### Local development
 ```bash
 cd apps/a-web
 npm install
@@ -92,6 +94,18 @@ Then open:
 http://localhost:3000
 ```
 
+#### Deployed (S3 + CloudFront)
+
+The frontend is deployed as static assets to Amazon S3 and served via CloudFront.
+
+**Deployment outputs (from CDK):**
+
+- `CdkStack.FrontendUrl` — CloudFront distribution URL
+- `CdkStack.HttpApiUrl` — API Gateway (HTTP API) base URL
+
+**Note:** The CloudFront domain (frontend) and the API Gateway domain are separate.  
+The frontend sends API requests directly to the API Gateway endpoint.
+
 ---
 
 ## Architecture (Project A)
@@ -103,6 +117,7 @@ http://localhost:3000
 - **Scheduler**: Amazon EventBridge
 - **IaC**: AWS CDK (TypeScript)
 - **Frontend**: Next.js
+- **Hosting**: Amazon S3 (private) + CloudFront (OAC)
 
 ---
 
