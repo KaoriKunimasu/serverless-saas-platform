@@ -17,6 +17,11 @@ import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cw from 'aws-cdk-lib/aws-cloudwatch';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
+
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 
@@ -70,9 +75,8 @@ export class CdkStack extends cdk.Stack {
       entry: path.join(__dirname, '../../apps/a-api/src/handlers/createItem.ts'),
       handler: 'handler',
       environment: commonEnv,
-
       depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
-
+      logRetention: logs.RetentionDays.ONE_MONTH,
       });
 
     const listItemsFn = new NodejsFunction(this, 'ListItemsFn', {
@@ -82,6 +86,7 @@ export class CdkStack extends cdk.Stack {
       environment: commonEnv,
       depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
 
+      logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
 const summaryFn = new NodejsFunction(this, 'SummaryFn', {
@@ -95,6 +100,8 @@ const summaryFn = new NodejsFunction(this, 'SummaryFn', {
     SUMMARY_TO_EMAIL: 'kaori.kunimasu@gmail.com',
   },
   depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
+
+  logRetention: logs.RetentionDays.ONE_MONTH,
 });
 
   itemsTable.grantReadData(summaryFn);
@@ -238,6 +245,100 @@ summaryScheduleRule.addTarget(
       distribution,
       distributionPaths: ['/*'],
     });
+
+        // =====================
+    // Observability (CloudWatch)
+    // =====================
+
+    // Alerts topic (dev)
+    const alertsTopic = new sns.Topic(this, 'ProjectAAlertsDev', {
+      topicName: `project-a-alerts-${stage}`,
+    });
+
+    // Email subscription (confirm subscription email after first deploy)
+    alertsTopic.addSubscription(
+      new subs.EmailSubscription('kaori.kunimasu@gmail.com')
+    );
+
+    // --- Alarms: API Lambdas ---
+    const createErrorsAlarm = new cw.Alarm(this, 'CreateItemErrorsAlarm', {
+      alarmName: `project-a-${stage}-createItem-errors`,
+      metric: createItemFn.metricErrors({
+        period: cdk.Duration.minutes(5),
+        statistic: 'sum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+    });
+
+    const listErrorsAlarm = new cw.Alarm(this, 'ListItemsErrorsAlarm', {
+      alarmName: `project-a-${stage}-listItems-errors`,
+      metric: listItemsFn.metricErrors({
+        period: cdk.Duration.minutes(5),
+        statistic: 'sum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+    });
+
+    const summaryErrorsAlarm = new cw.Alarm(this, 'SummaryErrorsAlarm', {
+      alarmName: `project-a-${stage}-summary-errors`,
+      metric: summaryFn.metricErrors({
+        period: cdk.Duration.minutes(5),
+        statistic: 'sum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+    });
+
+    // Duration p95 alarm (example: 3s)
+    const apiDurationP95Alarm = new cw.Alarm(this, 'ApiDurationP95Alarm', {
+      alarmName: `project-a-${stage}-api-duration-p95`,
+      metric: createItemFn.metricDuration({
+        period: cdk.Duration.minutes(5),
+        statistic: 'p95',
+      }),
+      threshold: 3000, // ms
+      evaluationPeriods: 1,
+    });
+
+    // Wire alarms -> SNS
+    const snsAction = {
+      bind: () => ({ alarmActionArn: alertsTopic.topicArn }),
+    };
+
+    createErrorsAlarm.addAlarmAction(snsAction);
+    listErrorsAlarm.addAlarmAction(snsAction);
+    summaryErrorsAlarm.addAlarmAction(snsAction);
+    apiDurationP95Alarm.addAlarmAction(snsAction);
+
+    // --- Dashboard ---
+    const dashboard = new cw.Dashboard(this, 'ProjectADashboard', {
+      dashboardName: `project-a-${stage}-overview`,
+    });
+
+    dashboard.addWidgets(
+      new cw.GraphWidget({
+        title: 'CreateItem - Invocations/Errors',
+        left: [createItemFn.metricInvocations(), createItemFn.metricErrors()],
+      }),
+      new cw.GraphWidget({
+        title: 'CreateItem - Duration p95',
+        left: [createItemFn.metricDuration({ statistic: 'p95' })],
+      }),
+      new cw.GraphWidget({
+        title: 'ListItems - Invocations/Errors',
+        left: [listItemsFn.metricInvocations(), listItemsFn.metricErrors()],
+      }),
+      new cw.GraphWidget({
+        title: 'Summary - Invocations/Errors',
+        left: [summaryFn.metricInvocations(), summaryFn.metricErrors()],
+      }),
+      new cw.AlarmStatusWidget({
+        title: 'Alarm Status',
+        alarms: [createErrorsAlarm, listErrorsAlarm, summaryErrorsAlarm, apiDurationP95Alarm],
+      })
+    );
 
     new cdk.CfnOutput(this, 'FrontendUrl', {
       value: `https://${distribution.distributionDomainName}`,
