@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: ["main"]
+    branches: ["*"]
   workflow_dispatch:
 
 jobs:
@@ -35,6 +35,7 @@ jobs:
       - name: Test (a-api)
         working-directory: apps/a-api
         run: npm test --if-present
+
       - name: Install (a-web)
         working-directory: apps/a-web
         run: npm ci
@@ -42,7 +43,7 @@ jobs:
       - name: Build (a-web)
         working-directory: apps/a-web
         run: npm run build
-        
+
       - name: Install (CDK)
         working-directory: cdk
         run: npm ci
@@ -70,7 +71,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::515241425905:role/github-actions-cdk-readonly
+          role-to-assume: arn:aws:iam::515241425905:role/github-actions-cdk-deploy
           aws-region: ap-southeast-2
 
       - name: Who am I?
@@ -84,7 +85,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -126,7 +126,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::515241425905:role/github-actions-cdk-readonly
+          role-to-assume: arn:aws:iam::515241425905:role/github-actions-cdk-deploy
           aws-region: ap-southeast-2
 
       - name: CDK deploy (dev)
