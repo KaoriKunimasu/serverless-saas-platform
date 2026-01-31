@@ -98,6 +98,7 @@ const summaryFn = new NodejsFunction(this, 'SummaryFn', {
     STAGE: stage,
     SUMMARY_FROM_EMAIL: 'kaori.kunimasu@gmail.com',
     SUMMARY_TO_EMAIL: 'kaori.kunimasu@gmail.com',
+    FORCE_SUMMARY_FAIL: '1',
   },
   depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
 
