@@ -14,3 +14,16 @@ cdk.out/
 # Env
 .env
 .env.*
+
+# Terraform
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/terraform.tfstate.d/
+**/.terraform.lock.hcl
+**/crash.log
+**/crash.*.log
+
+# Terraform var files (may contain secrets)
+**/*.tfvars
+**/*.tfvars.json
