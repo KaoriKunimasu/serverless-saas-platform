@@ -22,17 +22,12 @@ function monthKey(iso?: string) {
 
 
 export const handler = async (event: any) => {
-  // === manual alarm verification (temporary) ===
-  if (process.env.FORCE_SUMMARY_FAIL === '1') {
-    throw new Error('manual alarm verification');
-  }
-
   const stage =
     event?.stage ??
     event?.detail?.stage ??
     process.env.STAGE ??
     'dev';
-        
+
     log('summary.debug.event', {
   hasUserId: typeof event?.userId !== 'undefined',
   userId: event?.userId,
