@@ -7,6 +7,8 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+**/dist/
+**/node_modules/
 
 # CDK synth output
 cdk.out/
