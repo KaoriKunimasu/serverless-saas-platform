@@ -33,3 +33,15 @@ output "ecs_task_execution_role_arn" {
 output "ecs_task_role_arn" {
   value = aws_iam_role.ecs_task.arn
 }
+
+output "ecs_cluster_name" {
+  value = aws_ecs_cluster.this.name
+}
+
+output "api_ecr_url" {
+  value = aws_ecr_repository.api.repository_url
+}
+
+output "web_ecr_url" {
+  value = aws_ecr_repository.web.repository_url
+}
