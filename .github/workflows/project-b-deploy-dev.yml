@@ -16,7 +16,7 @@ permissions:
 env:
   AWS_REGION: ap-southeast-2
   ECR_REPO: project-b-dev-api
-  ECS_CLUSTER: project-b-dev
+  ECS_CLUSTER: project-b-dev-cluster
   ECS_SERVICE: project-b-dev-api
   CONTAINER_NAME: api
 
