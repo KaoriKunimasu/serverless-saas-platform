@@ -1,0 +1,55 @@
+name: Project B - deploy dev (api)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/b-api/**"
+      - "infra/b-terraform/**"
+      - ".github/workflows/project-b-deploy-dev.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-2
+  ECR_REPO: project-b-dev-api
+  ECS_CLUSTER: project-b-dev
+  ECS_SERVICE: project-b-dev-api
+  CONTAINER_NAME: api
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::515241425905:role/<YOUR_GHA_DEPLOY_ROLE>
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        id: build
+        run: |
+          IMAGE_TAG=${GITHUB_SHA::7}
+          ECR_URI=$(aws ecr describe-repositories --repository-names "${ECR_REPO}" --query 'repositories[0].repositoryUri' --output text)
+          docker build -t "${ECR_URI}:${IMAGE_TAG}" -t "${ECR_URI}:latest" ./apps/b-api
+          docker push "${ECR_URI}:${IMAGE_TAG}"
+          docker push "${ECR_URI}:latest"
+          echo "ecr_uri=${ECR_URI}" >> $GITHUB_OUTPUT
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Force new ECS deployment (latest)
+        run: |
+          aws ecs update-service \
+            --cluster "${ECS_CLUSTER}" \
+            --service "${ECS_SERVICE}" \
+            --force-new-deployment
