@@ -39,7 +39,7 @@ jobs:
       - name: Build and push image (immutable tag)
         id: build
         run: |
-          IMAGE_TAG=${GITHUB_SHA::7}
+          IMAGE_TAG="${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}"
           ECR_URI=$(aws ecr describe-repositories --repository-names "${ECR_REPO}" --query 'repositories[0].repositoryUri' --output text)
 
           docker build -t "${ECR_URI}:${IMAGE_TAG}" ./apps/b-api
