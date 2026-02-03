@@ -36,20 +36,36 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push image
+      - name: Build and push image (immutable tag)
         id: build
         run: |
           IMAGE_TAG=${GITHUB_SHA::7}
           ECR_URI=$(aws ecr describe-repositories --repository-names "${ECR_REPO}" --query 'repositories[0].repositoryUri' --output text)
-          docker build -t "${ECR_URI}:${IMAGE_TAG}" -t "${ECR_URI}:latest" ./apps/b-api
+
+          docker build -t "${ECR_URI}:${IMAGE_TAG}" ./apps/b-api
           docker push "${ECR_URI}:${IMAGE_TAG}"
-          docker push "${ECR_URI}:latest"
+
           echo "ecr_uri=${ECR_URI}" >> $GITHUB_OUTPUT
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
-      - name: Force new ECS deployment (latest)
+      - name: Download current task definition
         run: |
-          aws ecs update-service \
-            --cluster "${ECS_CLUSTER}" \
-            --service "${ECS_SERVICE}" \
-            --force-new-deployment
+          aws ecs describe-task-definition \
+            --task-definition "${ECS_SERVICE}" \
+            --query taskDefinition > task-definition.json
+
+      - name: Render task definition with new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: "${{ steps.build.outputs.ecr_uri }}:${{ steps.build.outputs.image_tag }}"
+
+      - name: Deploy task definition to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: "${{ steps.render.outputs.task-definition }}"
+          service: "${{ env.ECS_SERVICE }}"
+          cluster: "${{ env.ECS_CLUSTER }}"
+          wait-for-service-stability: true
