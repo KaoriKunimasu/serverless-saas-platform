@@ -9,6 +9,33 @@ serverless and container-based.
   Container-based application running on ECS Fargate with ALB, RDS, and infrastructure managed via Terraform.
 
 ---
+## CI/CD Flow (Project B)
+
+This project uses GitHub Actions with OIDC and Terraform-managed IAM for secure, fully automated deployments.
+
+Flow:
+
+1. Push to `main`
+2. GitHub Actions assumes AWS role via OIDC (no long-lived credentials)
+3. Build Docker image
+4. Tag image with an immutable tag (`<commit-sha>-<run-id>`)
+5. Push image to ECR
+6. Register new ECS task definition revision
+7. Update ECS service (rolling deployment)
+8. Wait for service stability
+
+Key design decisions:
+
+- OIDC authentication (no static secrets)
+- Immutable image tags (no `latest`)
+- Least-privilege IAM
+- Task/execution roles restricted with `iam:PassRole`
+- Infrastructure managed via Terraform
+- Operational incidents documented under `docs/incidents/`
+
+Result:
+Push → deploy → healthy with zero manual steps.
+
 
 ## Where to start
 
