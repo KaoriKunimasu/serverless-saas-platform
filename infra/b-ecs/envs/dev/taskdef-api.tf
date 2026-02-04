@@ -23,9 +23,20 @@ resource "aws_ecs_task_definition" "api" {
 
       environment = [
         { name = "PORT", value = tostring(var.app_port) },
-        # DBは後でRDSに切替える。今は placeholder でもOK。
-        { name = "DATABASE_URL", value = "postgres://app:app@db:5432/app" }
+
+        { name = "DB_HOST", value = aws_db_instance.postgres.address },
+        { name = "DB_PORT", value = "5432" },
+        { name = "DB_NAME", value = "appdb" },
+        { name = "DB_USER", value = "app_user" }
       ]
+
+      secrets = [
+        {
+          name      = "DB_PASSWORD"
+          valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:password::"
+        }
+      ]
+
 
       logConfiguration = {
         logDriver = "awslogs"

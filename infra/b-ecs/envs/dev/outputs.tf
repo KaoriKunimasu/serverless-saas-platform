@@ -48,3 +48,11 @@ output "web_ecr_url" {
 output "alb_dns_name" {
   value = aws_lb.api.dns_name
 }
+
+output "rds_endpoint" {
+  value = aws_db_instance.postgres.address
+}
+
+output "db_secret_arn" {
+  value = aws_secretsmanager_secret.db_credentials.arn
+}
