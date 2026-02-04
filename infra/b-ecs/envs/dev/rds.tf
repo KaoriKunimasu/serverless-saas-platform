@@ -32,11 +32,9 @@ resource "aws_db_instance" "postgres" {
   publicly_accessible = false
   multi_az            = false
 
-  username = jsondecode(aws_secretsmanager_secret_version.db_credentials.secret_string).username
-  password = jsondecode(aws_secretsmanager_secret_version.db_credentials.secret_string).password
-  db_name  = jsondecode(aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
-
-
+  username = "app_user"
+  password = aws_secretsmanager_secret_version.db_password.secret_string
+  db_name  = "appdb"
 
   backup_retention_period = 1
   skip_final_snapshot     = true
