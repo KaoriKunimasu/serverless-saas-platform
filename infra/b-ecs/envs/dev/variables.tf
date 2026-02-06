@@ -39,3 +39,7 @@ variable "alb_sg_id" {
 variable "vpc_id" {
   type = string
 }
+variable "api_image_tag" {
+  type        = string
+  description = "ECR image tag for API (ECR tags are immutable; use timestamp or git sha)"
+}

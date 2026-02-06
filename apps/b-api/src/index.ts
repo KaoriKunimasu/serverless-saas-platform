@@ -25,6 +25,7 @@ app.get("/db-check", async (_req, res) => {
   const database = process.env.DB_NAME;
   const portStr = process.env.DB_PORT;
 
+  
   if (!host || !user || !password || !database || !portStr) {
     return res.status(500).json({
       status: "error",
@@ -39,17 +40,26 @@ app.get("/db-check", async (_req, res) => {
     });
   }
 
-  const dbPort = Number(portStr);
-  const client = new Client({ host, user, password, database, port: dbPort });
+const dbPort = Number(portStr);
+
+const client = new Client({
+  host,
+  user,
+  password,
+  database,
+  port: dbPort,
+  ssl: { rejectUnauthorized: false },
+});
+
 
   try {
     await client.connect();
     const r = await client.query("SELECT 1 as ok");
-    await client.end();
     return res.status(200).json({ status: "ok", result: r.rows?.[0] ?? null });
   } catch (e: any) {
-    try { await client.end(); } catch {}
     return res.status(500).json({ status: "error", message: e?.message ?? "db failed" });
+  } finally {
+    try { await client.end(); } catch {}
   }
 });
 
