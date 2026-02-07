@@ -5,7 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "apps/b-api/**"
-      - "infra/b-terraform/**"
+      - "infra/b-ecs/envs/dev/**"
       - ".github/workflows/project-b-deploy-dev.yml"
   workflow_dispatch:
 
@@ -48,10 +48,16 @@ jobs:
           echo "ecr_uri=${ECR_URI}" >> $GITHUB_OUTPUT
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
-      - name: Download current task definition
+      - name: Download current task definition (from service)
         run: |
+          TD_ARN=$(aws ecs describe-services \
+            --cluster "${ECS_CLUSTER}" \
+            --services "${ECS_SERVICE}" \
+            --query "services[0].taskDefinition" \
+            --output text)
+
           aws ecs describe-task-definition \
-            --task-definition "${ECS_SERVICE}" \
+            --task-definition "$TD_ARN" \
             --query taskDefinition > task-definition.json
 
       - name: Render task definition with new image
@@ -69,3 +75,11 @@ jobs:
           service: "${{ env.ECS_SERVICE }}"
           cluster: "${{ env.ECS_CLUSTER }}"
           wait-for-service-stability: true
+
+      - name: Brief wait before smoke test
+        run: sleep 10
+
+      - name: Smoke test
+        run: |
+          curl -fsS "http://project-b-dev-alb-1457945794.ap-southeast-2.elb.amazonaws.com/health"
+          curl -fsS "http://project-b-dev-alb-1457945794.ap-southeast-2.elb.amazonaws.com/db-check"
