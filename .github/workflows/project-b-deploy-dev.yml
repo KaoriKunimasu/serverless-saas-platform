@@ -79,7 +79,29 @@ jobs:
       - name: Brief wait before smoke test
         run: sleep 10
 
-      - name: Smoke test
+      - name: Smoke test (discover ALB DNS)
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ALB_NAME: project-b-dev-alb
         run: |
-          curl -fsS "http://project-b-dev-alb-1457945794.ap-southeast-2.elb.amazonaws.com/health"
-          curl -fsS "http://project-b-dev-alb-1457945794.ap-southeast-2.elb.amazonaws.com/db-check"
+          set -euo pipefail
+
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --region "$AWS_REGION" \
+            --names "$ALB_NAME" \
+            --query "LoadBalancers[0].DNSName" \
+            --output text)
+
+          echo "ALB DNS: $ALB_DNS"
+
+          for i in {1..12}; do
+            echo "Smoke attempt $i/12"
+            if curl -fsS "http://$ALB_DNS/health" && curl -fsS "http://$ALB_DNS/db-check"; then
+              echo "Smoke test OK"
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "Smoke test failed after retries"
+          exit 1
