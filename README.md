@@ -36,6 +36,16 @@ Key design decisions:
 Result:
 Push → deploy → healthy with zero manual steps.
 
+### Deployment verification (smoke test)
+
+After each deployment, the pipeline checks:
+
+- GET /health
+- GET /db-check
+
+Target:
+http://project-b-dev-alb-1457945794.ap-southeast-2.elb.amazonaws.com
+
 
 ## Where to start
 
