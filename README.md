@@ -46,6 +46,15 @@ After each deployment, the pipeline checks:
 Target:
 http://project-b-dev-alb-1457945794.ap-southeast-2.elb.amazonaws.com
 
+## Deployment strategy (Project B)
+
+- ECS rolling deployment behind ALB
+- minimum healthy tasks: 100%
+- new tasks start before old tasks stop
+- automatic rollback on failed health checks
+
+Rollback procedure:
+docs/runbooks/rollback-ecs.md
 
 ## Where to start
 

@@ -11,16 +11,25 @@ resource "aws_ecs_service" "api" {
     assign_public_ip = false
   }
 
-  deployment_minimum_healthy_percent = 0
-  deployment_maximum_percent         = 100
+  # zero-downtime rolling deployment
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
 
-  tags = {
-    Name = "${local.name}-api"
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
+
+  health_check_grace_period_seconds = 60
+  force_new_deployment              = true
+
   load_balancer {
     target_group_arn = aws_lb_target_group.api.arn
     container_name   = "api"
     container_port   = var.app_port
   }
 
+  tags = {
+    Name = "${local.name}-api"
+  }
 }
