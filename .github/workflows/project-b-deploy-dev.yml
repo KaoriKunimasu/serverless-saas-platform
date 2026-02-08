@@ -81,5 +81,7 @@ jobs:
 
       - name: Smoke test
         run: |
-          curl -fsS "http://project-b-dev-alb-1457945794.ap-southeast-2.elb.amazonaws.com/health"
-          curl -fsS "http://project-b-dev-alb-1457945794.ap-southeast-2.elb.amazonaws.com/db-check"
+          ALB_DNS=$(aws elbv2 describe-load-balancers --names "project-b-dev-alb" --query "LoadBalancers[0].DNSName" --output text)
+          echo "ALB_DNS=$ALB_DNS"
+          curl -fsS "http://${ALB_DNS}/health"
+          curl -fsS "http://${ALB_DNS}/db-check"
