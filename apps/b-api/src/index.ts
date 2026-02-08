@@ -17,6 +17,21 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
+// CPU burn endpoint for autoscaling test
+app.get("/burn", (req, res) => {
+  const msRaw = req.query.ms;
+  const ms = Math.max(0, Math.min(5000, Number(msRaw ?? 300))); // 0〜5000msに制限
+
+  const start = Date.now();
+  // busy loop to consume CPU
+  while (Date.now() - start < ms) {
+    // some CPU work
+    Math.sqrt(Math.random() * 1e6);
+  }
+
+  res.status(200).json({ status: "ok", burnedMs: ms });
+});
+
 // DB connectivity check (simple TCP + auth)
 app.get("/db-check", async (_req, res) => {
   const host = process.env.DB_HOST;
