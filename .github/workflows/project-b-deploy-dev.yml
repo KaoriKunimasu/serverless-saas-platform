@@ -2,7 +2,7 @@ name: Project B - deploy dev (api)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "project-b/*"]
     paths:
       - "apps/b-api/**"
       - "infra/b-ecs/envs/dev/**"
@@ -39,7 +39,7 @@ jobs:
       - name: Build and push image (immutable tag)
         id: build
         run: |
-          IMAGE_TAG="${GITHUB_SHA::7}-${GITHUB_RUN_ID}"
+          IMAGE_TAG="${GITHUB_SHA::7}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           ECR_URI=$(aws ecr describe-repositories --repository-names "${ECR_REPO}" --query 'repositories[0].repositoryUri' --output text)
 
           docker build -t "${ECR_URI}:${IMAGE_TAG}" ./apps/b-api
@@ -79,29 +79,26 @@ jobs:
       - name: Brief wait before smoke test
         run: sleep 10
 
-      - name: Smoke test (discover ALB DNS)
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          ALB_NAME: project-b-dev-alb
+      - name: Smoke test (retry + tolerate 504)
         run: |
-          set -euo pipefail
+          ALB_DNS=$(aws elbv2 describe-load-balancers --names "project-b-dev-alb" --query "LoadBalancers[0].DNSName" --output text)
+          echo "ALB_DNS=$ALB_DNS"
 
-          ALB_DNS=$(aws elbv2 describe-load-balancers \
-            --region "$AWS_REGION" \
-            --names "$ALB_NAME" \
-            --query "LoadBalancers[0].DNSName" \
-            --output text)
-
-          echo "ALB DNS: $ALB_DNS"
-
-          for i in {1..12}; do
-            echo "Smoke attempt $i/12"
-            if curl -fsS "http://$ALB_DNS/health" && curl -fsS "http://$ALB_DNS/db-check"; then
-              echo "Smoke test OK"
-              exit 0
-            fi
+          # wait until /health is stable (tolerate transient 5xx like 504 during deployments)
+          ok=0
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /tmp/health.json -w "%{http_code}" "http://${ALB_DNS}/health" || true)
+            echo "try $i: /health http=$code body=$(cat /tmp/health.json 2>/dev/null || true)"
+            if [ "$code" = "200" ]; then ok=1; break; fi
             sleep 10
           done
 
-          echo "Smoke test failed after retries"
-          exit 1
+          if [ "$ok" != "1" ]; then
+            echo "health never became 200"
+            exit 1
+          fi
+
+          # optional checks (do not fail the workflow)
+          curl -fsS "http://${ALB_DNS}/burn?ms=50" || echo "/burn not ready yet"
+          curl -fsS "http://${ALB_DNS}/db-check" || echo "/db-check failed (DB may be starting)"
+

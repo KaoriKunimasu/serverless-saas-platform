@@ -20,7 +20,7 @@ resource "aws_ecs_service" "api" {
     rollback = true
   }
 
-  health_check_grace_period_seconds = 60
+  health_check_grace_period_seconds = 180
   force_new_deployment              = true
 
   load_balancer {
