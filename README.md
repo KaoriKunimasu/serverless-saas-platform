@@ -1,177 +1,121 @@
-# Cloud Platform Projects (AWS | Serverless + ECS)
+# Cloud Platform (AWS)
 
-This repository contains two AWS-based projects showcasing different production architectures:
-serverless and container-based.
+Two AWS-based services with different architecture approaches.
 
-- **Project A — Serverless SaaS (CDK)**  
-  Cognito-authenticated HTTP API built with AWS Lambda and DynamoDB, including scheduled processing and CI/CD.
-- **Project B — ECS Production on Fargate (Terraform)**  
-  Container-based application running on ECS Fargate with ALB, RDS, and infrastructure managed via Terraform.
+- **Project A**: Serverless API (CDK)
+- **Project B**: ECS Fargate service (Terraform)
+
+Both deployed via GitHub Actions with OIDC.
 
 ---
-## CI/CD Flow (Project B)
 
-This project uses GitHub Actions with OIDC and Terraform-managed IAM for secure, fully automated deployments.
+## Project A — Serverless API
+
+JWT-authenticated API built with Lambda and DynamoDB.
+
+### Stack
+- API Gateway (HTTP API)
+- Lambda (Node.js / TypeScript)
+- DynamoDB (on-demand)
+- Cognito
+- EventBridge
+- S3 + CloudFront
+- CDK
+
+### Features
+- JWT authentication
+- Per-user data isolation
+- Scheduled processing
+- Email notifications
+- CloudWatch alarms
+
+### Deployment
+
+Automated via GitHub Actions with OIDC.
 
 Flow:
+1. Build Lambda functions
+2. Synthesize CDK stack
+3. Deploy via CDK
+4. Run integration tests
 
-1. Push to `main`
-2. GitHub Actions assumes AWS role via OIDC (no long-lived credentials)
-3. Build Docker image
-4. Tag image with an immutable tag (`<commit-sha>-<run-id>`)
-5. Push image to ECR
-6. Register new ECS task definition revision
-7. Update ECS service (rolling deployment)
-8. Wait for service stability
+### Documentation
 
-Key design decisions:
-
-- OIDC authentication (no static secrets)
-- Immutable image tags (no `latest`)
-- Least-privilege IAM
-- Task/execution roles restricted with `iam:PassRole`
-- Infrastructure managed via Terraform
-- Operational incidents documented under `docs/incidents/`
-
-Result:
-Push → deploy → healthy with zero manual steps.
-
-### Deployment verification (smoke test)
-
-After each deployment, the pipeline checks:
-
-- GET /health
-- GET /db-check
-
-Target:
-http://project-b-dev-alb-1457945794.ap-southeast-2.elb.amazonaws.com
-
-## Deployment strategy (Project B)
-
-- ECS rolling deployment behind ALB
-- minimum healthy tasks: 100%
-- new tasks start before old tasks stop
-- automatic rollback on failed health checks
-
-Rollback procedure:
-docs/runbooks/rollback-ecs.md
-
-## Where to start
-
-- **System overview & architecture**: `docs/overview.md`
-- **Operational documentation**: `docs/runbooks/`, `docs/incidents/`
-- **Engineering standards & conventions**: `docs/standards.md`
-- **Deployment outputs**: CloudFront frontend URL and HTTP API endpoint are available as CDK stack outputs
----
-
-## Repository layout
-
-- `cdk/` — Infrastructure for Project A (AWS CDK, TypeScript)
-- `apps/`
-  - `apps/a-api/` — Serverless API (Lambda)
-  - `apps/a-web/` — Minimal frontend
-  - `apps/b-api/` — Container-based API
-  - `apps/b-web/` — Minimal frontend for validation
-- `infra/` — Infrastructure for Project B (Terraform)
-- `docs/` — Architecture notes, runbooks, incidents, and supporting documentation
+- `docs/runbooks/project-a/` — deploy, troubleshooting procedures
+- `docs/architecture.md` — design decisions
 
 ---
 
-## API Testing (Postman)
+## Project B — ECS Service
 
-A Postman collection is provided to verify the authenticated API flow.
+Container-based API on ECS Fargate with ALB and RDS.
 
-- Cognito authentication via `InitiateAuth`
-- Access token automatically stored at the collection level
-- Protected endpoints inherit Bearer authentication
-- Diagnostics request included to confirm unauthorized access is blocked
+### Stack
+- ECS Fargate
+- Application Load Balancer
+- RDS PostgreSQL
+- ECR
+- Terraform
+- GitHub Actions (OIDC)
 
-**Typical flow:**
+### Features
+- Rolling deployments
+- Health checks with grace period
+- CPU-based autoscaling
+- Immutable image tags
+- CloudWatch alarms
+- Smoke tests after deploy
 
-1. Authenticate via Cognito
-2. Create items (`POST /items`)
-3. Retrieve aggregates (`GET /summary`)
+### Deployment
 
----
+Automated on push to main or project-b branches.
 
-## Screenshots
+Flow:
+1. Build Docker image
+2. Push to ECR
+3. Register new task definition
+4. Update ECS service
+5. Wait for stability
+6. Run smoke test
 
-### Items (Create & List)
+### Documentation
 
-![Items](docs/screenshots/items.png)
-
-### Summary (Aggregated view)
-
-![Summary](docs/screenshots/summary.png)
-
----
-
-## How to run
-
-### API (Project A)
-
-The API is deployed using AWS CDK and exposed via Amazon API Gateway (HTTP API).  
-Authentication is handled by Amazon Cognito using JWTs.
-
-**Main endpoints:**
-
-- `POST /items` — create an item (authenticated)
-- `GET /items` — list user items (authenticated)
-- `GET /summary` — aggregated summary per user (authenticated)
+- `docs/runbooks/project-b/` — deploy, rollback procedures
+- `docs/autoscaling-verification.md` — scaling test results
+- `docs/cost-control.md` — stop/start guide
+- `docs/architecture.md` — design decisions
 
 ---
 
-### Frontend (Next.js)
+## Repository Structure
+```
+apps/      # application code
+cdk/       # CDK stacks (Project A)
+infra/     # Terraform (Project B)
+docs/      # runbooks, incidents, architecture notes
+```
 
-#### Local development
+---
+
+## Local Development
+
+### Project A
 ```bash
 cd apps/a-web
 npm install
 npm run dev
 ```
 
-Create `.env.local`:
-```env
-NEXT_PUBLIC_API_BASE_URL=https://<api-id>.execute-api.<region>.amazonaws.com
+### Project B
+```bash
+cd infra/environments/dev
+terraform apply
 ```
-
-Then open:
-```
-http://localhost:3000
-```
-
-#### Deployed (S3 + CloudFront)
-
-The frontend is deployed as static assets to Amazon S3 and served via CloudFront.
-
-**Deployment outputs (from CDK):**
-
-- `CdkStack.FrontendUrl` — CloudFront distribution URL
-- `CdkStack.HttpApiUrl` — API Gateway (HTTP API) base URL
-
-**Note:** The CloudFront domain (frontend) and the API Gateway domain are separate.  
-The frontend sends API requests directly to the API Gateway endpoint.
 
 ---
 
-## Architecture (Project A)
+## Notes
 
-- **API**: Amazon API Gateway (HTTP API)
-- **Compute**: AWS Lambda (Node.js / TypeScript)
-- **Auth**: Amazon Cognito User Pool (JWT)
-- **Database**: Amazon DynamoDB (on-demand)
-- **Scheduler**: Amazon EventBridge
-- **IaC**: AWS CDK (TypeScript)
-- **Frontend**: Next.js
-- **Hosting**: Amazon S3 (private) + CloudFront (OAC)
-
----
-
-## Cost notes
-
-This project is designed to keep development costs low:
-
-- DynamoDB uses on-demand billing
-- Lambda functions are event-driven
-- Non-production environments use DESTROY removal policies
-- Production environments are intended to apply retention policies, alarms, and stricter controls.
+- All AWS access via OIDC (no static credentials)
+- Infrastructure managed via IaC
+- Dev environment can be stopped when not in use to minimize cost
