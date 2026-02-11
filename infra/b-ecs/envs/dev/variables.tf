@@ -43,3 +43,18 @@ variable "api_image_tag" {
   type        = string
   description = "ECR image tag for API (ECR tags are immutable; use timestamp or git sha)"
 }
+
+variable "desired_count" {
+  type    = number
+  default = 0
+}
+
+variable "enable_nat" {
+  type    = bool
+  default = false
+}
+
+variable "enable_alb" {
+  type    = bool
+  default = false
+}

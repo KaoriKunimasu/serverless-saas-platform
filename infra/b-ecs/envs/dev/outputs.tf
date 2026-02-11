@@ -46,7 +46,7 @@ output "web_ecr_url" {
   value = aws_ecr_repository.web.repository_url
 }
 output "alb_dns_name" {
-  value = aws_lb.api.dns_name
+  value = var.enable_alb ? aws_lb.api[0].dns_name : ""
 }
 
 output "rds_endpoint" {
@@ -54,5 +54,6 @@ output "rds_endpoint" {
 }
 
 output "db_secret_arn" {
-  value = aws_secretsmanager_secret.db_credentials.arn
+  value = aws_secretsmanager_secret.db_password.arn
 }
+
