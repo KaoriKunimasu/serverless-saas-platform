@@ -3,6 +3,8 @@ resource "aws_sns_topic" "alerts" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
+  for_each = var.enable_alb ? { enabled = true } : {}
+
   alarm_name          = "${local.name}-alb-5xx"
   alarm_description   = "ALB target 5xx count is high"
   comparison_operator = "GreaterThanThreshold"
@@ -12,11 +14,10 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   period              = 60
   statistic           = "Sum"
   threshold           = 5
-  treat_missing_data  = "notBreaching"
 
   dimensions = {
-    TargetGroup  = aws_lb_target_group.api.arn_suffix
-    LoadBalancer = aws_lb.api.arn_suffix
+    TargetGroup  = aws_lb_target_group.api[0].arn_suffix
+    LoadBalancer = aws_lb.api[0].arn_suffix
   }
 
   alarm_actions = [aws_sns_topic.alerts.arn]

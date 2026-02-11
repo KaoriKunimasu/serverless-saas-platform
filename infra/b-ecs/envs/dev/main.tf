@@ -76,6 +76,7 @@ resource "aws_route_table_association" "public" {
 
 # NAT
 resource "aws_eip" "nat" {
+  count  = var.enable_nat ? 1 : 0
   domain = "vpc"
   tags = {
     Name = "${local.name}-eip-nat"
@@ -83,7 +84,8 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "this" {
-  allocation_id = aws_eip.nat.id
+  count = var.enable_nat ? 1 : 0
+  allocation_id = aws_eip.nat[0].id
   subnet_id     = values(aws_subnet.public)[0].id
 
   tags = {
@@ -103,9 +105,10 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "private_nat" {
+  count                  = var.enable_nat ? 1 : 0
   route_table_id         = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.this.id
+  nat_gateway_id         = aws_nat_gateway.this[0].id
 }
 
 resource "aws_route_table_association" "private" {
@@ -144,12 +147,13 @@ resource "aws_security_group" "alb" {
   # }
 
   egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
+    description = "Forward only inside VPC to app port"
+    from_port   = var.app_port
+    to_port     = var.app_port
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
   }
+
 
   tags = { Name = "${local.name}-alb-sg" }
 }
@@ -168,6 +172,7 @@ resource "aws_security_group" "ecs" {
   }
 
   egress {
+    description      = "Allow outbound for external access via NAT (API calls, updates, etc)"
     from_port        = 0
     to_port          = 0
     protocol         = "-1"
@@ -189,14 +194,6 @@ resource "aws_security_group" "rds" {
     to_port         = 5432
     protocol        = "tcp"
     security_groups = [aws_security_group.ecs.id]
-  }
-
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
   }
 
   tags = { Name = "${local.name}-rds-sg" }
