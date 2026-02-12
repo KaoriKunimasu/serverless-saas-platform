@@ -2,44 +2,66 @@
 
 ## Purpose
 
-Deploy a new API image to ECS using GitHub Actions and verify the service with minimum running cost.
+Deploy a new API image to ECS (dev) using GitHub Actions, verify quickly, then return to near-zero cost.
+
+---
+
+## Preconditions
+
+- You are in `infra/b-ecs/envs/dev`
+- Terraform backend is configured and state is reachable
+- Workflow: `Project B - deploy dev (api)` is enabled
 
 ---
 
 ## Operating Modes
 
-### Normal (Cost-Saving Default)
+### Default (Idle / Cost-Saving)
 
-Infrastructure is stopped to minimize costs:
+Infrastructure is off:
 
 ```hcl
-enable_nat     = false
-enable_alb     = false
-desired_count  = 0
+enable_nat    = false
+enable_alb    = false
+desired_count = 0
 ```
 
-**Note:** ALB does not exist → `curl` will fail.
+**Expected:** ALB does not exist → `curl` will fail.
 
-### Demo / Verification Mode
+### Demo / Verification (Temporary)
 
-Temporarily start infrastructure, test, then stop immediately.
+Turn infrastructure on briefly, verify, then turn off.
 
 ---
 
 ## Deployment Workflow
 
-### 1. Start Infrastructure (For Demo / Verification)
+### 1. Start (Demo / Verification)
 
 ```bash
-terraform apply \
+terraform apply -auto-approve \
   -var="enable_nat=true" \
   -var="enable_alb=true" \
   -var="desired_count=1"
 ```
 
-**Wait until:**
-- ECS service → `RUNNING` tasks = 1
-- Target group = `healthy`
+**Get ALB DNS:**
+
+```bash
+ALB=$(terraform output -raw alb_dns_name)
+echo "$ALB"
+```
+
+**Wait until healthy (retry):**
+
+```bash
+for i in $(seq 1 30); do
+  code=$(curl -s -o /tmp/health.json -w "%{http_code}" "http://${ALB}/health" || true)
+  echo "try $i: http=$code body=$(cat /tmp/health.json 2>/dev/null || true)"
+  [ "$code" = "200" ] && break
+  sleep 10
+done
+```
 
 ---
 
@@ -47,96 +69,147 @@ terraform apply \
 
 **Trigger:**
 - Push changes to `main` or `project-b/*` branch
+- Or run manually via `workflow_dispatch`
 
-**Process:**
-- GitHub Actions → "Project B - deploy dev (api)" runs automatically
-- Wait until ECS service becomes stable
+**What happens:**
 
----
-
-### 3. Verification
-
-```bash
-# Get ALB DNS name
-alb=$(terraform output -raw alb_dns_name)
-
-# Health check
-curl "http://$alb/health"
-
-# Database check
-curl "http://$alb/db-check"
-```
-
-**Expected Response:**
-```
-200 {"status":"ok"}
-```
+1. GitHub Actions builds and pushes a new immutable ECR tag
+2. Updates ECS task definition to the new image
+3. Waits for service stability
+4. Runs smoke test (skipped if ALB is disabled/not found)
 
 ---
 
-### 4. Stop Infrastructure (Immediately After Demo)
+### 3. Verify (Manual)
 
 ```bash
-# Stop ECS tasks
-terraform apply -var="desired_count=0"
+curl "http://${ALB}/health"
+curl "http://${ALB}/db-check"
+```
 
-# Remove ALB and NAT
-terraform apply \
+**Expected:**
+
+- `/health` → `200`
+- `/db-check` → `200` (may fail briefly if DB is starting)
+
+---
+
+### 4. Stop (Return to Idle / Near-Zero Cost)
+
+**Scale down first:**
+
+```bash
+terraform apply -auto-approve -var="desired_count=0"
+```
+
+**Then remove ALB/NAT:**
+
+```bash
+terraform apply -auto-approve \
   -var="enable_alb=false" \
   -var="enable_nat=false"
 ```
-
-**This removes:**
-- ECS tasks
-- ALB
-- NAT Gateway
-
-**Result:** Cost returns close to $0
 
 ---
 
 ## Troubleshooting
 
-### If You Receive 503 Error
+### 503 from ALB
 
-Check the following:
+**Most common causes:**
 
-1. **ECS tasks running?**
-   ```bash
-   aws ecs list-tasks --cluster <cluster-name> --service-name <service-name>
-   ```
+- ECS task not running yet / still registering
+- Target group health check failing (wrong port/path, app not ready)
+- Security group rules prevent ALB → ECS traffic
 
-2. **Target group healthy?**
-   ```bash
-   aws elbv2 describe-target-health --target-group-arn <target-group-arn>
-   ```
+**Fast checks:**
 
-3. **Deployment still starting?**
-   - Check if within grace period
-   - Review ECS service events
+#### Service events / task status:
 
-### Debug Resources
+```bash
+aws ecs describe-services \
+  --cluster "$(terraform output -raw ecs_cluster_name)" \
+  --services "${TF_VAR_project}-${TF_VAR_env}-api" \
+  --query "services[0].events[:5].[createdAt,message]" \
+  --output table
+```
 
-- **GitHub Actions logs**: Check workflow execution details
-- **ECS service events**: Review deployment timeline and errors
-- **CloudWatch logs**: Check application logs for runtime errors
+> **Note:** If your service name isn't exposed, use: `aws ecs list-services --cluster ...`
+
+#### ALB target health:
+
+```bash
+aws elbv2 describe-target-health --target-group-arn <target-group-arn>
+```
+
+**Logs:**
+
+- ECS task logs (CloudWatch)
+- GitHub Actions deploy job logs
+
+---
+
+### `/db-check` fails but `/health` is 200
+
+**Possible causes:**
+
+- DB may still be starting
+- Credentials not injected correctly
+
+**Check:**
+
+- RDS status
+- Verify Secrets Manager ARN in task definition
 
 ---
 
 ## Quick Reference
 
+### Start Infrastructure
+
 ```bash
-# Start infrastructure
-terraform apply -var="enable_nat=true" -var="enable_alb=true" -var="desired_count=1"
+terraform apply -auto-approve \
+  -var="enable_alb=true" \
+  -var="enable_nat=true" \
+  -var="desired_count=1"
 
-# Get ALB DNS
-alb=$(terraform output -raw alb_dns_name)
+ALB=$(terraform output -raw alb_dns_name)
 
-# Test endpoints
-curl "http://$alb/health"
-curl "http://$alb/db-check"
+curl "http://${ALB}/health"
+curl "http://${ALB}/db-check" || true
+```
 
-# Stop infrastructure
-terraform apply -var="desired_count=0"
-terraform apply -var="enable_alb=false" -var="enable_nat=false"
+### Stop Infrastructure
+
+```bash
+terraform apply -auto-approve -var="desired_count=0"
+
+terraform apply -auto-approve \
+  -var="enable_alb=false" \
+  -var="enable_nat=false"
+```
+
+---
+
+## Command Cheat Sheet
+
+```bash
+# Get cluster name
+terraform output -raw ecs_cluster_name
+
+# Get service name
+echo "${TF_VAR_project}-${TF_VAR_env}-api"
+
+# List running tasks
+aws ecs list-tasks \
+  --cluster "$(terraform output -raw ecs_cluster_name)" \
+  --service-name "${TF_VAR_project}-${TF_VAR_env}-api"
+
+# Describe service
+aws ecs describe-services \
+  --cluster "$(terraform output -raw ecs_cluster_name)" \
+  --services "${TF_VAR_project}-${TF_VAR_env}-api"
+
+# View CloudWatch logs
+aws logs tail "/ecs/${TF_VAR_project}-${TF_VAR_env}-api" --follow
 ```
