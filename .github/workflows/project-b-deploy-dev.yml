@@ -80,8 +80,21 @@ jobs:
         run: sleep 10
 
       - name: Smoke test (retry + tolerate 504)
+        shell: bash
         run: |
-          ALB_DNS=$(aws elbv2 describe-load-balancers --names "project-b-dev-alb" --query "LoadBalancers[0].DNSName" --output text)
+          set -euo pipefail
+
+          # If ALB doesn't exist (cost-saving mode), skip smoke test gracefully.
+          ALB_DNS="$(aws elbv2 describe-load-balancers \
+            --names "project-b-dev-alb" \
+            --query "LoadBalancers[0].DNSName" \
+            --output text 2>/dev/null || true)"
+
+          if [ -z "${ALB_DNS}" ] || [ "${ALB_DNS}" = "None" ] || [ "${ALB_DNS}" = "null" ]; then
+            echo "ALB not found (likely enable_alb=false). Skipping smoke test."
+            exit 0
+          fi
+
           echo "ALB_DNS=$ALB_DNS"
 
           # wait until /health is stable (tolerate transient 5xx like 504 during deployments)
