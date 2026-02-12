@@ -32,9 +32,8 @@ data "aws_iam_policy_document" "ecs_task_execution_secrets_read" {
     actions = [
       "secretsmanager:GetSecretValue"
     ]
-    resources = [
-      "${aws_secretsmanager_secret.db_password.arn}*"
-    ]
+    resources = ["${aws_secretsmanager_secret.db_password.arn}*"]
+
   }
 }
 
@@ -48,27 +47,9 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_secrets_read" {
   policy_arn = aws_iam_policy.ecs_task_execution_secrets_read.arn
 }
 
-
 # Task role: app permissions only (no secrets needed here)
 resource "aws_iam_role" "ecs_task" {
   name               = "${local.name}-ecs-task"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_assume_role.json
 }
 
-data "aws_iam_policy_document" "ecs_task_minimal" {
-  statement {
-    effect    = "Allow"
-    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = ["*"]
-  }
-}
-
-resource "aws_iam_policy" "ecs_task_minimal" {
-  name   = "${local.name}-ecs-task-minimal"
-  policy = data.aws_iam_policy_document.ecs_task_minimal.json
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_minimal" {
-  role       = aws_iam_role.ecs_task.name
-  policy_arn = aws_iam_policy.ecs_task_minimal.arn
-}
