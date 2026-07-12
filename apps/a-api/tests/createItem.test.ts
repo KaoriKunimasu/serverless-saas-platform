@@ -11,12 +11,19 @@ jest.mock('../src/lib/logger', () => ({
 
 import { ddb } from '../src/lib/ddb';
 import { handler } from '../src/handlers/createItem';
+import { log } from '../src/lib/logger';
 
 const sendMock = ddb.send as jest.Mock;
+const logMock = log as jest.Mock;
 
 const authenticatedEvent = (body: unknown) => ({
   body: typeof body === 'string' ? body : JSON.stringify(body),
+  rawPath: '/items',
   requestContext: {
+    requestId: 'request-123',
+    http: {
+      method: 'POST',
+    },
     authorizer: {
       jwt: {
         claims: {
@@ -73,11 +80,32 @@ describe('createItem handler', () => {
         }),
       }),
     );
+
+    expect(logMock).toHaveBeenCalledWith(
+      'createItem.created',
+      expect.objectContaining({
+        requestId: 'request-123',
+        statusCode: 200,
+      }),
+    );
+
+    const createdLog = logMock.mock.calls.find(
+      ([eventName]) => eventName === 'createItem.created',
+    )?.[1];
+
+    expect(createdLog).not.toHaveProperty('userId');
+    expect(createdLog).not.toHaveProperty('body');
+    expect(createdLog).not.toHaveProperty('authorization');
   });
 
   test('returns 400 when the request body is missing', async () => {
     const response = await handler({
+      rawPath: '/items',
       requestContext: {
+        requestId: 'request-123',
+        http: {
+          method: 'POST',
+        },
         authorizer: {
           jwt: {
             claims: {
@@ -131,7 +159,12 @@ describe('createItem handler', () => {
         name: 'Lunch',
         amount: 12.5,
       }),
+      rawPath: '/items',
       requestContext: {
+        requestId: 'request-123',
+        http: {
+          method: 'POST',
+        },
         authorizer: {},
       },
     });
@@ -163,5 +196,15 @@ describe('createItem handler', () => {
 
     expect(response.body).not.toContain('DynamoDB');
     expect(response.body).not.toContain('conditional check failed');
+
+    expect(logMock).toHaveBeenCalledWith(
+      'createItem.dynamodbWriteFailed',
+      expect.objectContaining({
+        requestId: 'request-123',
+        statusCode: 500,
+        errorCategory: 'dynamodb_write_failure',
+        errorName: 'Error',
+      }),
+    );
   });
 });
