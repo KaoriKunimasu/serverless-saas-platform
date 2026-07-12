@@ -1,15 +1,30 @@
+export function getAuthenticatedUserId(event: any): string | undefined {
+  const jwtSubject = event?.requestContext?.authorizer?.jwt?.claims?.sub;
+
+  if (jwtSubject) {
+    return String(jwtSubject);
+  }
+
+  const legacySubject = event?.requestContext?.authorizer?.claims?.sub;
+
+  if (legacySubject) {
+    return String(legacySubject);
+  }
+
+  return undefined;
+}
+
 export function getUserId(event: any): string {
-  // EventBridge / lambda invoke
+  // EventBridge / Lambda invoke
   if (event?.userId) return String(event.userId);
+
   if (event?.detail?.userId) return String(event.detail.userId);
 
-  // HTTP API v2 + JWT authorizer
-  const sub1 = event?.requestContext?.authorizer?.jwt?.claims?.sub;
-  if (sub1) return String(sub1);
+  const authenticatedUserId = getAuthenticatedUserId(event);
 
-  // Fallback 
-  const sub2 = event?.requestContext?.authorizer?.claims?.sub;
-  if (sub2) return String(sub2);
+  if (authenticatedUserId) {
+    return authenticatedUserId;
+  }
 
   return 'local-user';
 }
