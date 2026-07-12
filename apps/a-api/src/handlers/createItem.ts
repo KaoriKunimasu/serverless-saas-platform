@@ -1,10 +1,16 @@
 import { randomUUID } from 'crypto';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
-import { ddb, TABLE_NAME } from '../lib/ddb';
-import { ok, badRequest } from '../lib/response';
 import { z } from 'zod';
+
+import { ddb, TABLE_NAME } from '../lib/ddb';
+import {
+  badRequest,
+  internalServerError,
+  ok,
+  unauthorized,
+} from '../lib/response';
 import { log } from '../lib/logger';
-import { getUserId } from '../lib/auth';
+import { getAuthenticatedUserId } from '../lib/auth';
 
 const schema = z.object({
   name: z.string().min(1),
@@ -12,21 +18,22 @@ const schema = z.object({
 });
 
 /**
- * Expected event (API Gateway v2 HTTP API proxy-like shape):
- * - event.body: string (JSON) or object
- * - event.requestContext.authorizer.jwt.claims.sub: string (new format)
- * - event.requestContext.authorizer.claims.sub: string (older format)
+ * Expected event shape:
+ * - event.body: JSON string or object
+ * - event.requestContext.authorizer.jwt.claims.sub: authenticated user ID
  */
 export const handler = async (event: any) => {
-  log('rawEvent', {
-    hasBody: !!event?.body,
+  log('createItem.requestReceived', {
+    hasBody: Boolean(event?.body),
     bodyType: typeof event?.body,
-    bodyPreview: typeof event?.body === 'string' ? event.body.slice(0, 200) : event?.body,
-    isBase64Encoded: event?.isBase64Encoded,
-    keys: Object.keys(event ?? {}),
+    hasJwtClaims: Boolean(
+      event?.requestContext?.authorizer?.jwt?.claims?.sub,
+    ),
   });
 
-  if (!event?.body) return badRequest('Missing body');
+  if (!event?.body) {
+    return badRequest('Missing body');
+  }
 
   let bodyObj: unknown;
 
@@ -41,26 +48,43 @@ export const handler = async (event: any) => {
   }
 
   const parsed = schema.safeParse(bodyObj);
-  if (!parsed.success) return badRequest('Invalid input');
 
-  const userId = getUserId(event);
-  const itemId = randomUUID();
+  if (!parsed.success) {
+    return badRequest('Invalid input');
+  }
+
+  const userId = getAuthenticatedUserId(event);
+
+  if (!userId) {
+    return unauthorized();
+  }
 
   const item = {
     pk: `USER#${userId}`,
-    sk: `ITEM#${itemId}`,
+    sk: `ITEM#${randomUUID()}`,
     ...parsed.data,
     createdAt: new Date().toISOString(),
   };
 
-  log('createItem', item);
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: item,
+      }),
+    );
+  } catch (error) {
+    log('createItem.dynamodbWriteFailed', {
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
 
-  await ddb.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: item,
-    }),
-  );
+    return internalServerError();
+  }
+
+  log('createItem.created', {
+    userId,
+    itemId: item.sk,
+  });
 
   return ok(item);
 };
