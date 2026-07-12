@@ -20,18 +20,32 @@ const schema = z.object({
 /**
  * Expected event shape:
  * - event.body: JSON string or object
+ * - event.requestContext.requestId: API Gateway request identifier
  * - event.requestContext.authorizer.jwt.claims.sub: authenticated user ID
  */
 export const handler = async (event: any) => {
+  const requestId = event?.requestContext?.requestId ?? 'unknown';
+  const method = event?.requestContext?.http?.method ?? 'unknown';
+  const path = event?.rawPath ?? 'unknown';
+
   log('createItem.requestReceived', {
+    requestId,
+    method,
+    path,
     hasBody: Boolean(event?.body),
     bodyType: typeof event?.body,
-    hasJwtClaims: Boolean(
+    hasAuthenticatedUser: Boolean(
       event?.requestContext?.authorizer?.jwt?.claims?.sub,
     ),
   });
 
   if (!event?.body) {
+    log('createItem.requestRejected', {
+      requestId,
+      reason: 'missing_body',
+      statusCode: 400,
+    });
+
     return badRequest('Missing body');
   }
 
@@ -41,6 +55,12 @@ export const handler = async (event: any) => {
     try {
       bodyObj = JSON.parse(event.body);
     } catch {
+      log('createItem.requestRejected', {
+        requestId,
+        reason: 'invalid_json',
+        statusCode: 400,
+      });
+
       return badRequest('Invalid JSON');
     }
   } else {
@@ -50,12 +70,24 @@ export const handler = async (event: any) => {
   const parsed = schema.safeParse(bodyObj);
 
   if (!parsed.success) {
+    log('createItem.requestRejected', {
+      requestId,
+      reason: 'invalid_input',
+      statusCode: 400,
+    });
+
     return badRequest('Invalid input');
   }
 
   const userId = getAuthenticatedUserId(event);
 
   if (!userId) {
+    log('createItem.requestRejected', {
+      requestId,
+      reason: 'missing_authenticated_user',
+      statusCode: 401,
+    });
+
     return unauthorized();
   }
 
@@ -75,6 +107,9 @@ export const handler = async (event: any) => {
     );
   } catch (error) {
     log('createItem.dynamodbWriteFailed', {
+      requestId,
+      statusCode: 500,
+      errorCategory: 'dynamodb_write_failure',
       errorName: error instanceof Error ? error.name : 'UnknownError',
     });
 
@@ -82,7 +117,8 @@ export const handler = async (event: any) => {
   }
 
   log('createItem.created', {
-    userId,
+    requestId,
+    statusCode: 200,
     itemId: item.sk,
   });
 

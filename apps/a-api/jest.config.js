@@ -1,5 +1,6 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  testMatch: ['**/tests/**/*.ts']
+  testMatch: ['**/tests/**/*.ts'],
+  maxWorkers: 1,
 };
