@@ -59,7 +59,7 @@ Flow:
 - [Customer issue intake template](docs/runbooks/project-a/customer-issue-intake-template.md)
 - [Observability and support investigation guide](docs/observability.md)
 - [Architecture overview](docs/architecture.md)
-- [Portfolio lab incident exercises](docs/incidents/)
+- [Incident response exercises](docs/incidents/)
 
 ---
 
@@ -179,7 +179,7 @@ Flow:
 - [Customer issue intake template](docs/runbooks/project-a/customer-issue-intake-template.md)
 - [Observability and support investigation guide](docs/observability.md)
 - [Architecture overview](docs/architecture.md)
-- [Portfolio lab incident exercises](docs/incidents/)
+- [Incident response exercises](docs/incidents/)
 
 ---
 
