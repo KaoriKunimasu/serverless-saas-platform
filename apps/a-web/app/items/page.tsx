@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getErrorMessageFromUnknown } from "@/lib/api";
 
 type Item = {
   pk?: string;
@@ -11,37 +11,54 @@ type Item = {
   createdAt?: string;
 };
 
+function isItem(value: unknown): value is Item {
+  return typeof value === "object" && value !== null;
+}
+
+function getItems(value: unknown): Item[] {
+  if (Array.isArray(value)) {
+    return value.filter(isItem);
+  }
+
+  if (typeof value === "object" && value !== null && "items" in value) {
+    const items = value.items;
+    return Array.isArray(items) ? items.filter(isItem) : [];
+  }
+
+  return [];
+}
+
 export default function ItemsPage() {
   const [name, setName] = useState("coffee");
   const [amount, setAmount] = useState<number>(450);
   const [items, setItems] = useState<Item[]>([]);
   const [status, setStatus] = useState<string>("");
 
-  const createItem = async () => {
-    setStatus("Creating...");
+  const listItems = async () => {
+    setStatus("Loading...");
+
     try {
-      const out = await apiFetch("/items", {
-        method: "POST",
-        body: JSON.stringify({ name, amount }),
-      });
-      setStatus("Created.");
-      // optional: refresh list
-      await listItems();
-      return out;
-    } catch (e: any) {
-      setStatus(`Error: ${e.message}`);
+      const out = await apiFetch("/items", { method: "GET" });
+      setItems(getItems(out));
+      setStatus("Loaded.");
+    } catch (error: unknown) {
+      setStatus(`Error: ${getErrorMessageFromUnknown(error)}`);
     }
   };
 
-  const listItems = async () => {
-    setStatus("Loading...");
+  const createItem = async () => {
+    setStatus("Creating...");
+
     try {
-      const out = await apiFetch("/items", { method: "GET" });
-      const arr = Array.isArray(out) ? out : out?.items ?? [];
-      setItems(arr);
-      setStatus("Loaded.");
-    } catch (e: any) {
-      setStatus(`Error: ${e.message}`);
+      await apiFetch("/items", {
+        method: "POST",
+        body: JSON.stringify({ name, amount }),
+      });
+
+      setStatus("Created.");
+      await listItems();
+    } catch (error: unknown) {
+      setStatus(`Error: ${getErrorMessageFromUnknown(error)}`);
     }
   };
 
@@ -54,8 +71,13 @@ export default function ItemsPage() {
           Name
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ display: "block", width: "100%", padding: 8, marginTop: 4 }}
+            onChange={(event) => setName(event.target.value)}
+            style={{
+              display: "block",
+              width: "100%",
+              padding: 8,
+              marginTop: 4,
+            }}
           />
         </label>
 
@@ -64,8 +86,13 @@ export default function ItemsPage() {
           <input
             type="number"
             value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-            style={{ display: "block", width: "100%", padding: 8, marginTop: 4 }}
+            onChange={(event) => setAmount(Number(event.target.value))}
+            style={{
+              display: "block",
+              width: "100%",
+              padding: 8,
+              marginTop: 4,
+            }}
           />
         </label>
 
