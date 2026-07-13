@@ -40,6 +40,10 @@ jobs:
         working-directory: apps/a-web
         run: npm ci
 
+      - name: Lint (a-web)
+        working-directory: apps/a-web
+        run: npm run lint
+
       - name: Build (a-web)
         working-directory: apps/a-web
         run: npm run build
