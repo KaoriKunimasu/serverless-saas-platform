@@ -19,6 +19,7 @@ import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as cw from 'aws-cdk-lib/aws-cloudwatch';
+import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 
@@ -31,6 +32,11 @@ export class CdkStack extends cdk.Stack {
 
     const stage = this.node.tryGetContext('stage') ?? 'dev';
     const isProd = stage === 'prod';
+
+    // Notification address for alarms and the summary email.
+    // Override at deploy time with: -c alertEmail=you@example.com
+    const alertEmail =
+      this.node.tryGetContext('alertEmail') ?? 'kaori.kunimasu@gmail.com';
 
     // DynamoDB
     const itemsTable = new dynamodb.Table(this, 'ItemsTable', {
@@ -108,8 +114,8 @@ const summaryFn = new NodejsFunction(this, 'SummaryFn', {
   environment: {
     ...commonEnv,
     STAGE: stage,
-    SUMMARY_FROM_EMAIL: 'kaori.kunimasu@gmail.com',
-    SUMMARY_TO_EMAIL: 'kaori.kunimasu@gmail.com',
+    SUMMARY_FROM_EMAIL: alertEmail,
+    SUMMARY_TO_EMAIL: alertEmail,
   },
   depsLockFilePath: path.join(__dirname, '../../apps/a-api/package-lock.json'),
 
@@ -279,7 +285,7 @@ summaryScheduleRule.addTarget(
 
     // Email subscription (confirm subscription email after first deploy)
     alertsTopic.addSubscription(
-      new subs.EmailSubscription('kaori.kunimasu@gmail.com')
+      new subs.EmailSubscription(alertEmail)
     );
 
     // --- Alarms: API Lambdas ---
@@ -325,9 +331,7 @@ summaryScheduleRule.addTarget(
     });
 
     // Wire alarms -> SNS
-    const snsAction = {
-      bind: () => ({ alarmActionArn: alertsTopic.topicArn }),
-    };
+    const snsAction = new cwActions.SnsAction(alertsTopic);
 
     createErrorsAlarm.addAlarmAction(snsAction);
     listErrorsAlarm.addAlarmAction(snsAction);

@@ -3,6 +3,12 @@
 *.d.ts
 node_modules
 
-# CDK asset staging directory
+# CDK asset staging / synth output
 .cdk.staging
 cdk.out
+cdk.out-local
+
+# Local synth/deploy artifacts (not source)
+outputs.json
+template.txt
+*.log
