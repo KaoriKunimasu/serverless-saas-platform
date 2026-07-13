@@ -1,20 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getErrorMessageFromUnknown } from "@/lib/api";
 
 export default function SummaryPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<unknown>(null);
   const [status, setStatus] = useState<string>("");
 
   const load = async () => {
     setStatus("Loading...");
+
     try {
       const out = await apiFetch("/summary", { method: "GET" });
       setData(out);
       setStatus("Loaded.");
-    } catch (e: any) {
-      setStatus(`Error: ${e.message}`);
+    } catch (error: unknown) {
+      setStatus(`Error: ${getErrorMessageFromUnknown(error)}`);
     }
   };
 

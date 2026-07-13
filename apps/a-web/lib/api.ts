@@ -1,5 +1,10 @@
 const LS_KEY = "accessToken";
 
+type ApiErrorBody = {
+  message?: unknown;
+  error?: unknown;
+};
+
 function getBaseUrl() {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (!base) throw new Error("NEXT_PUBLIC_API_BASE_URL is not set");
@@ -11,31 +16,61 @@ function getToken() {
   return localStorage.getItem(LS_KEY) ?? "";
 }
 
-export async function apiFetch(path: string, init?: RequestInit) {
+function getErrorMessage(body: unknown, fallback: string) {
+  if (typeof body !== "object" || body === null) {
+    return fallback;
+  }
+
+  const errorBody = body as ApiErrorBody;
+
+  if (typeof errorBody.message === "string") {
+    return errorBody.message;
+  }
+
+  if (typeof errorBody.error === "string") {
+    return errorBody.error;
+  }
+
+  return fallback;
+}
+
+export async function apiFetch(
+  path: string,
+  init?: RequestInit,
+): Promise<unknown> {
   const baseUrl = getBaseUrl();
   const token = getToken();
+  const headers = new Headers(init?.headers);
+
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
   const res = await fetch(`${baseUrl}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   const text = await res.text();
-  let json: any = null;
+  let json: unknown = null;
+
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
-    // ignore
+    json = null;
   }
 
   if (!res.ok) {
-    const msg = json?.message || json?.error || text || `HTTP ${res.status}`;
-    throw new Error(msg);
+    throw new Error(getErrorMessage(json, text || `HTTP ${res.status}`));
   }
 
   return json;
+}
+
+export function getErrorMessageFromUnknown(error: unknown) {
+  return error instanceof Error ? error.message : "Unexpected error";
 }
