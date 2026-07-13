@@ -63,6 +63,8 @@ const client = new Client({
   password,
   database,
   port: dbPort,
+  // Connectivity smoke-check only: skip CA verification for simplicity.
+  // Use a verified RDS CA bundle here before handling real traffic.
   ssl: { rejectUnauthorized: false },
 });
 

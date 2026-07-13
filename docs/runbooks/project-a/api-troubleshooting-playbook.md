@@ -15,7 +15,7 @@ It is designed for issues involving:
 - Health-endpoint verification
 - Post-deployment checks
 
-This is a portfolio project. Procedures are designed to demonstrate reproducible investigation, safe handling of customer information, structured logging, and complete engineering escalation context.
+Procedures are designed to demonstrate reproducible investigation, safe handling of customer information, structured logging, and complete engineering escalation context.
 
 ## System Request Flow
 
