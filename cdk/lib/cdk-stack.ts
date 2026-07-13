@@ -79,6 +79,18 @@ export class CdkStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
       });
 
+    const healthFn = new NodejsFunction(this, 'HealthFn', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.join(__dirname, '../../apps/a-api/src/handlers/health.ts'),
+      handler: 'handler',
+      environment: commonEnv,
+      depsLockFilePath: path.join(
+        __dirname,
+        '../../apps/a-api/package-lock.json',
+      ),
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
     const listItemsFn = new NodejsFunction(this, 'ListItemsFn', {
       runtime: lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../apps/a-api/src/handlers/listItems.ts'),
@@ -159,6 +171,16 @@ summaryScheduleRule.addTarget(
     const issuer = `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`;
     const jwtAuthorizer = new authorizers.HttpJwtAuthorizer('JwtAuthorizer', issuer, {
       jwtAudience: [userPoolClient.userPoolClientId],
+    });
+
+    // Public route for service availability checks.
+    httpApi.addRoutes({
+      path: '/health',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'HealthIntegration',
+        healthFn,
+      ),
     });
 
     // Routes (protected)
