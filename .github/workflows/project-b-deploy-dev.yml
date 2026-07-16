@@ -127,6 +127,17 @@ jobs:
           fi
 
           # optional checks (do not fail the workflow)
-          curl -fsS "http://${ALB_DNS}/burn?ms=50" || echo "/burn not ready yet"
+          BURN_TOKEN="$(aws secretsmanager get-secret-value \
+            --secret-id "project-b-dev/burn/token" \
+            --query SecretString --output text 2>/dev/null || true)"
+
+          if [ -n "${BURN_TOKEN}" ]; then
+            echo "::add-mask::${BURN_TOKEN}"
+            curl -fsS -H "Authorization: Bearer ${BURN_TOKEN}" \
+              "http://${ALB_DNS}/burn?ms=50" || echo "/burn not ready yet"
+          else
+            echo "burn token not readable, skipping /burn check"
+          fi
+
           curl -fsS "http://${ALB_DNS}/db-check" || echo "/db-check failed (DB may be starting)"
 
