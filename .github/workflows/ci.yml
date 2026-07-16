@@ -64,6 +64,32 @@ jobs:
         working-directory: cdk
         run: npx cdk synth
 
+  terraform:
+    name: terraform (fmt/validate)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Format check
+        run: terraform fmt -check -recursive infra/
+
+      # -backend=false so this needs no AWS credentials.
+      - name: Validate
+        run: |
+          set -euo pipefail
+          for dir in infra/b-ecs infra/b-ecs/envs/dev infra/b-terraform infra/terraform-state; do
+            echo "::group::$dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+            echo "::endgroup::"
+          done
+
   aws-smoke:
     name: aws smoke (OIDC STS)
     runs-on: ubuntu-latest
