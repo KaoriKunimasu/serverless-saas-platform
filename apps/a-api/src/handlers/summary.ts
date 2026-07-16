@@ -1,8 +1,8 @@
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, TABLE_NAME } from '../lib/ddb';
-import { ok } from '../lib/response';
+import { ok, unauthorized } from '../lib/response';
 import { log } from '../lib/logger';
-import { getUserId } from '../lib/auth';
+import { getAuthenticatedUserId, getUserId } from '../lib/auth';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
 const ses = new SESClient({});
@@ -21,7 +21,23 @@ export const handler = async (event: any) => {
     process.env.STAGE ??
     'dev';
 
-  const userId = getUserId(event);
+  // HTTP calls resolve identity from the JWT and reject cleanly if it's
+  // missing. EventBridge invocations carry userId directly on the event
+  // and have no request to answer with a 401, so getUserId throws instead.
+  let userId: string;
+
+  if (event?.requestContext) {
+    const authenticatedUserId = getAuthenticatedUserId(event);
+
+    if (!authenticatedUserId) {
+      return unauthorized();
+    }
+
+    userId = authenticatedUserId;
+  } else {
+    userId = getUserId(event);
+  }
+
   const pk = `USER#${userId}`;
 
   const result = await ddb.send(

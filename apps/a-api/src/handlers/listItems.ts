@@ -1,16 +1,20 @@
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, TABLE_NAME } from '../lib/ddb';
-import { ok } from '../lib/response';
+import { ok, unauthorized } from '../lib/response';
 import { log } from '../lib/logger';
-import { getUserId } from '../lib/auth';
+import { getAuthenticatedUserId } from '../lib/auth';
 
 /**
  * Expected event:
- * - event.requestContext.authorizer.claims.sub (optional for now)
+ * - event.requestContext.authorizer.jwt.claims.sub
  */
 
 export const handler = async (event: any) => {
-  const userId = getUserId(event);  
+  const userId = getAuthenticatedUserId(event);
+
+  if (!userId) {
+    return unauthorized();
+  }
 
   const pk = `USER#${userId}`;
 

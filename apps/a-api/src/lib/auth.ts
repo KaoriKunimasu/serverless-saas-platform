@@ -26,5 +26,5 @@ export function getUserId(event: any): string {
     return authenticatedUserId;
   }
 
-  return 'local-user';
+  throw new Error('getUserId: no userId on the event and no authenticated claim found.');
 }
