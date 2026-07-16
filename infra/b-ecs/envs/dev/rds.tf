@@ -25,6 +25,7 @@ resource "aws_db_instance" "postgres" {
 
   allocated_storage = 20
   storage_type      = "gp3"
+  storage_encrypted = true
 
   db_subnet_group_name   = aws_db_subnet_group.rds.name
   vpc_security_group_ids = [aws_security_group.rds.id]
