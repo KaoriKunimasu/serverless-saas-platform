@@ -25,14 +25,17 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_managed" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Allow ECS execution role to read DB password secret
+# Allow ECS execution role to read the secrets injected into the task
 data "aws_iam_policy_document" "ecs_task_execution_secrets_read" {
   statement {
     effect = "Allow"
     actions = [
       "secretsmanager:GetSecretValue"
     ]
-    resources = ["${aws_secretsmanager_secret.db_password.arn}*"]
+    resources = [
+      "${aws_secretsmanager_secret.db_password.arn}*",
+      "${aws_secretsmanager_secret.burn_token.arn}*",
+    ]
 
   }
 }

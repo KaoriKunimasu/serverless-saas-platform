@@ -90,6 +90,19 @@ data "aws_iam_policy_document" "project_b_deploy_policy" {
     ]
     resources = ["*"]
   }
+  # The smoke test calls /burn, which needs the shared token the container
+  # is configured with. Read it from the same secret rather than keeping a
+  # second copy as a GitHub secret.
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "arn:aws:secretsmanager:ap-southeast-2:515241425905:secret:project-b-dev/burn/token-*"
+    ]
+  }
+
   statement {
     effect = "Allow"
     actions = [

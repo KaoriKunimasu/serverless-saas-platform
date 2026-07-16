@@ -1,9 +1,17 @@
 import express from "express";
 import cors from "cors";
 import { Client } from "pg";
+import { timingSafeEqual } from "crypto";
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
+
+function tokenMatches(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 const corsOrigins = (process.env.CORS_ORIGINS ?? "http://localhost:3002,http://127.0.0.1:3002")
   .split(",")
@@ -17,8 +25,22 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-// CPU burn endpoint for autoscaling test
+// CPU burn endpoint for autoscaling test. Behind a shared token so the
+// public ALB doesn't hand anonymous callers a way to burn CPU. Fails
+// closed: no BURN_TOKEN configured means the endpoint stays off.
 app.get("/burn", (req, res) => {
+  const expected = process.env.BURN_TOKEN;
+
+  if (!expected) {
+    return res.status(404).json({ status: "error", message: "not enabled" });
+  }
+
+  const provided = (req.get("authorization") ?? "").replace(/^Bearer /i, "");
+
+  if (!provided || !tokenMatches(provided, expected)) {
+    return res.status(401).json({ status: "error", message: "unauthorized" });
+  }
+
   const msRaw = req.query.ms;
   const ms = Math.max(0, Math.min(5000, Number(msRaw ?? 300))); // 0〜5000msに制限
 

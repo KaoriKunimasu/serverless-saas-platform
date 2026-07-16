@@ -26,11 +26,14 @@ Custom endpoint added:
 GET /burn?ms=1500
 ```
 
-This endpoint intentionally burns CPU to simulate heavy load.
+This endpoint intentionally burns CPU to simulate heavy load. It requires the
+shared token in `project-b-dev/burn/token`, so that a public ALB isn't handing
+anonymous callers a way to burn CPU.
 
 Example:
 ```powershell
-1..150 | % { iwr "http://<ALB>/burn?ms=1500" }
+$token = aws secretsmanager get-secret-value --secret-id "project-b-dev/burn/token" --query SecretString --output text
+1..150 | % { iwr "http://<ALB>/burn?ms=1500" -Headers @{ Authorization = "Bearer $token" } }
 ```
 
 ## Observed Results
