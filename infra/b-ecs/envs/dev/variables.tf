@@ -3,6 +3,11 @@ variable "project" {
   default = "project-b"
 }
 
+variable "owner" {
+  type    = string
+  default = "KaoriKunimasu"
+}
+
 variable "env" {
   type    = string
   default = "dev"
