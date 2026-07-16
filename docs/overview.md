@@ -1,27 +1,17 @@
 # System Overview
 
-This repository contains two independent AWS-based projects, each designed to represent a different
-architectural approach commonly used in production cloud systems.
+This repository holds two AWS projects built around different architectures: one serverless, one containerised.
 
-The focus is on infrastructure design, security boundaries, deployment workflows, and operational clarity,
-rather than feature completeness or UI polish.
+The application logic in both is deliberately thin. What's being worked out here is the infrastructure around it — security boundaries, deployment workflow, and what it takes to operate each one.
 
 ---
 
 ## Repository Scope
 
-The repository is intentionally split into two projects:
+- **Project A** — serverless, leaning on managed services wherever they'll do the job.
+- **Project B** — containerised, where the networking and scaling have to be configured by hand.
 
-- **Project A** demonstrates a serverless-first architecture optimized for simplicity, scalability,
-  and managed services.
-- **Project B** demonstrates a container-based architecture where more operational responsibility
-  is explicitly managed.
-
-Both projects share common principles:
-- Infrastructure as Code
-- Clear separation of concerns
-- Minimal but explicit security configuration
-- Operational visibility via logs and runbooks
+Both follow the same ground rules: infrastructure defined in code, security configuration written out rather than left to defaults, and enough logging and runbooks to debug them without guessing.
 
 ---
 
@@ -29,9 +19,7 @@ Both projects share common principles:
 
 ### Purpose
 
-Project A represents a small but realistic serverless backend that relies primarily on managed AWS services.
-The goal is to show how authentication, API design, data isolation, and scheduled processing can be implemented
-without introducing unnecessary custom infrastructure.
+A small serverless backend assembled almost entirely from managed AWS services. It covers authentication, a handful of API routes, per-user data isolation, and one scheduled job, with no custom infrastructure holding it together.
 
 ### Architecture
 
@@ -42,26 +30,21 @@ without introducing unnecessary custom infrastructure.
 - **Background Processing**: Amazon EventBridge (scheduled execution)
 - **Infrastructure Definition**: AWS CDK (TypeScript)
 
-Each Lambda function is scoped to a single responsibility and derives the authenticated user context
-from JWT claims provided by the API Gateway authorizer.
+Each Lambda covers a single endpoint and takes the caller's identity from the JWT claims that the API Gateway authorizer attaches to the request.
 
 ### Design Notes
 
-- Authentication and token validation are delegated to managed services.
-- DynamoDB access is partitioned by user identifier to ensure data isolation.
-- Lambda functions are intentionally kept small and stateless.
-- Environment separation (e.g. dev / prod) is handled via configuration rather than duplicated code.
+- Token validation happens at the API Gateway authorizer, so no handler parses a JWT itself.
+- DynamoDB is partitioned by user ID, so one caller's query can't reach another's items.
+- The `stage` context flag drives the differences between environments (removal policy, point-in-time recovery, schedule cadence) rather than a second copy of the stack.
 
 ---
 
-## Project B — ECS Production on Fargate (Terraform)
+## Project B — ECS on Fargate (Terraform)
 
 ### Purpose
 
-Project B represents a more traditional container-based deployment model where networking,
-service orchestration, and scaling decisions are explicitly managed.
-
-This project focuses on infrastructure composition, dependency wiring, and operational safeguards.
+A container deployment where the VPC, orchestration, and scaling rules are all spelled out. The service itself only does three things — health, a database connectivity check, and a CPU-burn endpoint used for the autoscaling test — because the point is the infrastructure it runs on.
 
 ### Architecture
 
@@ -75,35 +58,26 @@ This project focuses on infrastructure composition, dependency wiring, and opera
 
 ### Design Notes
 
-- Services are deployed into private subnets with controlled ingress.
-- Task roles and security groups follow least-privilege principles.
-- Deployment and rollback procedures are documented alongside the infrastructure.
-- Observability is treated as a first-class concern rather than an afterthought.
+- The service and the database sit in private subnets. Only the ALB is public.
+- The ECS task role carries no permissions of its own; the execution role can read only the specific secrets it injects.
+- Deploy and rollback steps are written down in `docs/runbooks/project-b/`.
 
 ---
 
 ## Documentation Structure
 
-Supporting documentation is organized under `docs/`:
-
-- `overview.md` — High-level system and architecture overview (this document)
-- `standards.md` — Naming, conventions, and design assumptions
-- `runbooks/` — Operational procedures and recovery steps
-- `incidents/` — Simulated incident reports and resolutions
-
-This structure mirrors how documentation is commonly organized in production repositories.
+- `overview.md` — this document
+- `standards.md` — naming, conventions, and design assumptions
+- `runbooks/` — operational procedures and recovery steps
+- `incidents/` — incident write-ups
 
 ---
 
 ## Out of Scope
 
-The following are intentionally not emphasized:
+Deliberately not built out:
 
-- Full-featured frontend UX
-- Extensive business logic
-- Cost optimization beyond basic safeguards
+- Frontend UX
+- Business logic beyond what's needed to exercise the infrastructure
+- Cost optimisation past basic safeguards
 - Multi-region or high-availability configurations
-
-The goal is clarity of architecture and operations, not completeness.
-
----
