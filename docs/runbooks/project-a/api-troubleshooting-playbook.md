@@ -399,15 +399,12 @@ fields @timestamp, event, requestId, method, path, statusCode, reason, errorCate
 
 ## Post-Deployment Investigation
 
-The deployment workflow performs a health smoke test after CDK deployment.
+The deploy workflow stops at `cdk deploy` and does not check the deployed API,
+so `GET /health` has to be verified by hand after a deployment. The Project A
+deployment runbook has the commands for retrieving `HttpApiUrl` and calling the
+endpoint.
 
-The workflow:
-
-1. Retrieves `HttpApiUrl` from CloudFormation stack outputs.
-2. Calls `GET /health`.
-3. Retries transient HTTP failures.
-4. Requires an HTTP success response.
-5. Validates that the JSON response contains:
+Expected health response:
 
 ```json
 {
@@ -417,7 +414,7 @@ The workflow:
 }
 ```
 
-If the deployment workflow fails at the health-verification step:
+If `/health` does not come back healthy after a deployment:
 
 1. Record the GitHub Actions run URL.
 2. Record the deployment commit SHA.
