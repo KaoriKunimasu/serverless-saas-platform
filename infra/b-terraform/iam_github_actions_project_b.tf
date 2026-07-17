@@ -82,6 +82,17 @@ data "aws_iam_policy_document" "project_b_deploy_policy" {
     ]
     resources = ["*"]
   }
+
+  # The smoke test looks up the ALB's DNS name to call /health against it.
+  # DescribeLoadBalancers has no resource-level permissions, so this can't
+  # be narrowed to the one load balancer.
+  statement {
+    effect = "Allow"
+    actions = [
+      "elasticloadbalancing:DescribeLoadBalancers"
+    ]
+    resources = ["*"]
+  }
   statement {
     effect = "Allow"
     actions = [
