@@ -83,7 +83,7 @@ jobs:
       - name: Validate
         run: |
           set -euo pipefail
-          for dir in infra/b-ecs infra/b-ecs/envs/dev infra/b-terraform infra/terraform-state; do
+          for dir in infra/b-ecs/envs/dev infra/b-terraform infra/terraform-state; do
             echo "::group::$dir"
             terraform -chdir="$dir" init -backend=false -input=false
             terraform -chdir="$dir" validate
