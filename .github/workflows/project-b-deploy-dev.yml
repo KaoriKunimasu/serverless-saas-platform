@@ -99,14 +99,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          # If ALB doesn't exist (cost-saving mode), skip smoke test gracefully.
-          ALB_DNS="$(aws elbv2 describe-load-balancers \
+          # A missing ALB is expected in cost-saving mode and skips the test.
+          # Anything else failing the lookup is a real problem and should say
+          # so, rather than looking the same as "not provisioned".
+          if ! ALB_DNS="$(aws elbv2 describe-load-balancers \
             --names "project-b-dev-alb" \
             --query "LoadBalancers[0].DNSName" \
-            --output text 2>/dev/null || true)"
+            --output text 2>&1)"; then
+            case "${ALB_DNS}" in
+              *LoadBalancerNotFound*)
+                echo "ALB does not exist (enable_alb=false). Skipping smoke test."
+                exit 0
+                ;;
+              *)
+                echo "Could not look up the ALB: ${ALB_DNS}"
+                exit 1
+                ;;
+            esac
+          fi
 
           if [ -z "${ALB_DNS}" ] || [ "${ALB_DNS}" = "None" ] || [ "${ALB_DNS}" = "null" ]; then
-            echo "ALB not found (likely enable_alb=false). Skipping smoke test."
+            echo "ALB lookup returned no DNS name. Skipping smoke test."
             exit 0
           fi
 
