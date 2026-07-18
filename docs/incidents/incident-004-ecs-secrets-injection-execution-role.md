@@ -20,7 +20,7 @@ Evidence (ECS service events):
 ## Root Cause
 ECS secret injection (`container_definitions.secrets`) retrieves secrets **at task startup** using the **task execution role** (`project-b-dev-ecs-task-exec`), not the task role.
 
-Only the task role had `secretsmanager:GetSecretValue`, so ECS could not fetch the secret during resource initialization and the task never reached RUNNING.
+Only the task role had `secretsmanager:GetSecretValue`, so ECS could not fetch the secret during resource initialisation and the task never reached RUNNING.
 
 ## Detection
 - ALB `/health` returned 503

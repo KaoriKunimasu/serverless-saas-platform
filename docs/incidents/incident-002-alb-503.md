@@ -33,7 +33,7 @@ app.listen(port, "0.0.0.0", () => {
 
 ## Prevention
 
-- Always bind containerized applications to `0.0.0.0`
+- Always bind containerised applications to `0.0.0.0`
 - Explicitly define a health check endpoint for ALB
 - Add ECS + ALB validation items to the deployment checklist
 
