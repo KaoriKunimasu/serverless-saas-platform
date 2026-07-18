@@ -20,6 +20,7 @@ JWT-authenticated serverless API built with AWS Lambda and DynamoDB.
 - Amazon DynamoDB with on-demand billing
 - Amazon Cognito
 - Amazon EventBridge
+- Amazon SES
 - Amazon S3 and CloudFront
 - AWS CDK
 - Amazon CloudWatch
@@ -27,14 +28,13 @@ JWT-authenticated serverless API built with AWS Lambda and DynamoDB.
 
 ### Features
 
-- JWT authentication through Cognito
+- Cognito JWT authentication
 - Per-user DynamoDB data isolation
 - JSON request validation
-- Structured application logging with sensitive-data redaction
-- Request correlation through API Gateway request IDs
-- Scheduled processing through EventBridge
-- Email notifications through Amazon SES
-- CloudWatch alarms and dashboard visibility
+- Structured logging that redacts sensitive fields
+- Request correlation via API Gateway request IDs
+- Scheduled processing on EventBridge, with email notifications sent via SES
+- CloudWatch alarms and a dashboard
 - Public `/health` endpoint for availability checks
 - Deployment, rollback, and troubleshooting runbooks
 
@@ -45,7 +45,7 @@ Automated via GitHub Actions with OIDC-based AWS authentication.
 Flow:
 
 1. Build and test the API, frontend, and CDK application
-2. Synthesize the CDK stack
+2. Synthesise the CDK stack
 3. Deploy the development environment via CDK
 4. Retrieve the deployed API URL from CloudFormation outputs
 
