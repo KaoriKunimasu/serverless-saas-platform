@@ -38,7 +38,7 @@ This is an early-warning signal for performance problems.
 1. If it’s a transient cold start pattern:
    - monitor for 10–15 minutes, no action required
 2. If consistent degradation:
-   - optimize query/processing logic
+   - optimise query/processing logic
    - reduce data scanned/returned
 3. If urgent:
    - increase Lambda memory (improves CPU/network) and redeploy
